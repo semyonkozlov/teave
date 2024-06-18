@@ -1,0 +1,11 @@
+FROM python:3.10-slim
+
+ARG USERNAME=teamo
+RUN useradd -m ${USERNAME}
+USER ${USERNAME}
+
+WORKDIR /${USERNAME}
+COPY infra/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .

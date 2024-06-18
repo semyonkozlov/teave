@@ -1,0 +1,24 @@
+services:
+  telegrambridge:
+    build:
+      dockerfile: ./infra/Dockerfile
+    command: bash -c "sleep 10 && python -m telegrambridge"
+    depends_on:
+      - rabbitmq
+
+  matcher:
+    build:
+      dockerfile: ./infra/Dockerfile
+    command: bash -c "sleep 10 && python -m matcher"
+    depends_on:
+      - rabbitmq
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: 'rabbitmq'
+    ports:
+        - 5672:5672
+        - 15672:15672
+    volumes:
+        - ~/.docker-conf/rabbitmq/data/:/var/lib/rabbitmq/
+        - ~/.docker-conf/rabbitmq/log/:/var/log/rabbitmq
