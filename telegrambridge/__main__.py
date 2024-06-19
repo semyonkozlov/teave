@@ -1,28 +1,30 @@
 import pika
+import logging
 
 
 def main():
+    logging.basicConfig(level=logging.INFO)
+
     connection = pika.BlockingConnection(pika.ConnectionParameters("rabbitmq"))
     channel = connection.channel()
 
     channel.queue_declare(queue="submits", durable=True)
 
     try:
-        while True:
-            print(f" [*] Input message")
-            content = input()
+        for i in range(3):
+            content = f"message {i}"
             channel.basic_publish(
                 exchange="",
                 routing_key="submits",
                 body=content,
                 properties=pika.BasicProperties(
-                    delivery_mode=2,  # make message persistent
+                    delivery_mode=pika.DeliveryMode.Persistent,
                 ),
             )
-            print(f" [x] Sent")
+            logging.info(f"Message '{content}' sent")
 
     finally:
-        print(f"Connection closed")
+        logging.info(f"Connection closed")
         connection.close()
 
 
