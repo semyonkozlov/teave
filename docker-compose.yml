@@ -2,16 +2,18 @@ services:
   telegrambridge:
     build:
       dockerfile: ./infra/Dockerfile
-    command: bash -c "sleep 10 && python -m telegrambridge"
+    command: python -m telegrambridge
     depends_on:
-      - rabbitmq
+      rabbitmq:
+        condition: service_healthy
 
   matcher:
     build:
       dockerfile: ./infra/Dockerfile
-    command: bash -c "sleep 10 && python -m matcher"
+    command: python -m matcher
     depends_on:
-      - rabbitmq
+      rabbitmq:
+        condition: service_healthy 
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
@@ -21,6 +23,11 @@ services:
       - 15672:15672
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: rabbitmq-diagnostics check_port_connectivity
+      interval: 1s
+      timeout: 3s
+      retries: 30
 
 volumes:
   rabbitmq_data:
