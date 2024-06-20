@@ -3,6 +3,8 @@ services:
     build:
       dockerfile: ./infra/Dockerfile
     command: python -m telegrambridge
+    env_file:
+      - ./telegrambridge/.env
     depends_on:
       rabbitmq:
         condition: service_healthy

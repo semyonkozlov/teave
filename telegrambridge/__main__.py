@@ -1,35 +1,30 @@
-import pika
+import asyncio
 import logging
+import os
+
+from aiogram import Bot, Dispatcher
+
+import telegrambridge.handlers as handlers
+from telegrambridge.middlewares import RabbitMqChannel
 
 
-def main():
+async def main():
     logging.basicConfig(level=logging.INFO)
 
-    connection = pika.BlockingConnection(pika.ConnectionParameters("rabbitmq"))
-    channel = connection.channel()
+    # TODO: use pydantic settings to configure
+    bot = Bot(token=str(os.getenv("TOKEN")))
+    dp = Dispatcher()
 
-    channel.queue_declare(queue="submits", durable=True)
+    dp.message.middleware(RabbitMqChannel("rabbitmq"))
 
-    try:
-        for i in range(3):
-            content = f"message {i}"
-            channel.basic_publish(
-                exchange="",
-                routing_key="submits",
-                body=content,
-                properties=pika.BasicProperties(
-                    delivery_mode=pika.DeliveryMode.Persistent,
-                ),
-            )
-            logging.info(f"Message '{content}' sent")
+    dp.include_router(handlers.router)
 
-    finally:
-        logging.info(f"Connection closed")
-        connection.close()
+    await bot.delete_webhook(drop_pending_updates=True)
+    await dp.start_polling(bot)
 
 
 if __name__ == "__main__":
     try:
-        main()
-    except KeyboardInterrupt:
-        pass
+        asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit):
+        logging.info("Bot stopped")
