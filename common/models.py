@@ -25,8 +25,22 @@ class Submit(BaseModel):
 
 
 class Event(BaseModel):
+    id: str
+
     lead: Submit
     followers: list[Submit] = []
+    state: str = "created"
+    num_confirmations: int = 0
+
+    delivery_tag: int = 0
+
+    @property
+    def confirmed(self) -> bool:
+        return self.num_confirmations == self.num_attendees
+
+    @property
+    def num_attendees(self) -> int:
+        return self.lead.num_attendees
 
     @property
     def packed(self) -> bool:
@@ -35,3 +49,9 @@ class Event(BaseModel):
     @property
     def type(self) -> str:
         return self.lead.event_type
+
+
+class FlowUpdate(BaseModel):
+    event_id: str
+    type: str
+    data: dict
