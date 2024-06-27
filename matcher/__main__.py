@@ -39,7 +39,7 @@ class Matcher:
                 for e in pending_events:
                     if self._match(submit, e):
                         if e.packed:
-                            pending_events.remove(e)
+                            pending_events.remove(e)  # TODO check
                             self._on_packed_event(e)
                         break
                 else:
@@ -73,6 +73,7 @@ def main():
 
     channel.queue_declare(queue="submits", durable=True)
     channel.queue_declare(queue="events", durable=True)
+    channel.basic_qos(prefetch_size=0)
 
     def ack_submits(event: Event):
         for submit in event.followers:
@@ -87,7 +88,7 @@ def main():
         channel.basic_publish(
             exchange="",
             routing_key="events",
-            body=event.model_dump_json(),
+            body=event.model_dump_json(exclude_none=True),
             properties=pika.BasicProperties(
                 delivery_mode=pika.DeliveryMode.Persistent,
             ),
@@ -100,7 +101,6 @@ def main():
         submit.id = method.delivery_tag
         matcher.on_submit(submit)
 
-    channel.basic_qos(prefetch_size=0)
     channel.basic_consume(queue="submits", on_message_callback=callback)
 
     logging.info("Start consuming")
