@@ -17,12 +17,14 @@ class EventFlow(StateMachine):
     partially_confirmed = State()
     confirmed = State()
     started = State()
-    in_progress = State()
     finished = State(final=True)
 
     # transitions
     # fmt: off
-    confirm = created.to(confirmed, cond="everyone_confirmed") | created.to(partially_confirmed)
+    confirm = created.to(confirmed, cond="everyone_confirmed") | partially_confirmed.to(confirmed, cond="everyone_confirmed") | created.to(partially_confirmed)
+    start = confirmed.to(started)
+    got_reject = confirmed.to(partially_confirmed)
+    finish = started.to(finished)
     # fmt: on
 
     def __init__(self, event: Event):
@@ -96,7 +98,7 @@ async def main():
 
     logging.info("Start consuming")
     await channel.basic_consume(events_declare.queue, on_event_message)
-    await channel.basic_consume(updates_declare.queue, on_update_message, auto_ack=True)
+    await channel.basic_consume(updates_declare.queue, on_update_message)
 
 
 if __name__ == "__main__":

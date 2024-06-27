@@ -1,7 +1,8 @@
 from datetime import datetime
 from enum import Enum
+from uuid import uuid4
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Location(BaseModel):
@@ -19,13 +20,13 @@ class Submit(BaseModel):
     user_type: UserType
     event_type: str
     location: Location
-    start: datetime = None
-    end: datetime = None
+    start: datetime | None = None
+    end: datetime | None = None
     num_attendees: int
 
 
 class Event(BaseModel):
-    id: str
+    id: str = Field(default_factory=lambda: uuid4().hex)
 
     lead: Submit
     followers: list[Submit] = []
