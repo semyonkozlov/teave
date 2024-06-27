@@ -4,7 +4,7 @@ CONTAINER_NAME=$1
 
 if [ -z "$CONTAINER_NAME" ]; then
     echo "Pass container name: ./d [container_name]"
-    echo "Running containers: $(docker ps --format '{{.Names}}')"
+    echo -e "Running containers:\n$(docker ps --format '{{.Names}}')"
     exit 1
 fi
 
