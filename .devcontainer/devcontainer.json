@@ -17,9 +17,8 @@
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	"features": {
 		"ghcr.io/devcontainers/features/common-utils:2": {},
-		"ghcr.io/devcontainers/features/python:1": {},
 		"ghcr.io/devcontainers-contrib/features/apt-packages:1": {
-			"packages": "curl,wget,silversearcher-ag"
+			"packages": "curl,wget,silversearcher-ag,"
 		}
 	},
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
@@ -29,7 +28,7 @@
 	// Uncomment the next line if you want to keep your containers running after VS Code shuts down.
 	// "shutdownAction": "none",
 	// Uncomment the next line to run commands after the container is created.
-	// "postCreateCommand": "cat /etc/os-release",
+	"postCreateCommand": "pip install -r infra/requirements-ci.txt",
 	// Configure tool-specific properties.
 	"customizations": {
 		"vscode": {
