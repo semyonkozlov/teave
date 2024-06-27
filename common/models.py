@@ -15,7 +15,7 @@ class UserType(str, Enum):
 
 
 class Submit(BaseModel):
-    id: int = 0
+    id: str = Field(default_factory=lambda: uuid4().hex)
 
     user_type: UserType
     event_type: str
@@ -23,6 +23,8 @@ class Submit(BaseModel):
     start: datetime | None = None
     end: datetime | None = None
     num_attendees: int
+
+    delivery_tag: int = 0
 
 
 class Event(BaseModel):

@@ -8,15 +8,11 @@ from common.models import Event, Submit, UserType
 
 
 class Matcher:
-    def __init__(self, on_packed_event: Callable[[Event], None]):
+    def __init__(self):
         self._pending_events: dict[str, list[Event]] = defaultdict(list)
         self._unmatched_submits: dict[str, list[Submit]] = defaultdict(list)
 
-        self._on_packed_event = on_packed_event
-
-    def on_submit(self, submit: Submit):
-        logging.info(f"New submit {submit}")
-
+    def match(self, submit: Submit) -> Event | None:
         match submit.user_type:
             case UserType.LEAD:
                 event = Event(lead=submit)
@@ -30,7 +26,7 @@ class Matcher:
                 self._unmatched_submits[event.type] = still_unmatched
 
                 if event.packed:
-                    self._on_packed_event(event)
+                    return event
                 else:
                     self._pending_events[event.type].append(event)
 
@@ -40,18 +36,20 @@ class Matcher:
                     if self._match(submit, e):
                         if e.packed:
                             pending_events.remove(e)  # TODO check
-                            self._on_packed_event(e)
+                            return e
                         break
                 else:
                     self._unmatched_submits[submit.event_type].append(submit)
             case _:
                 raise ValueError(f"Unknown user type {submit.user_type}")
 
+        return None
+
     def _match(self, submit: Submit, event: Event):
         if submit.user_type != UserType.FOLLOWER:
             raise ValueError(f"Can match only submits of type {UserType.FOLLOWER}")
 
-        logging.info(f"Matching submit {submit}")
+        logging.info(f"Matching submit {submit}...")
 
         if event.packed:
             logging.info("Event is already packed")
@@ -77,12 +75,12 @@ def main():
 
     def ack_submits(event: Event):
         for submit in event.followers:
-            channel.basic_ack(delivery_tag=submit.id)
-        channel.basic_ack(delivery_tag=event.lead.id)
+            channel.basic_ack(delivery_tag=submit.delivery_tag)
+        channel.basic_ack(delivery_tag=event.lead.delivery_tag)
 
     def publish_event(event: Event):
         assert event.packed
-        logging.info(f"Event {event} is packed, publishing")
+        logging.info(f"Event {event} is packed, publishing...")
 
         ack_submits(event)
         channel.basic_publish(
@@ -94,12 +92,14 @@ def main():
             ),
         )
 
-    matcher = Matcher(on_packed_event=publish_event)
+    matcher = Matcher()
 
     def callback(ch, method, properties, body):
         submit = Submit.model_validate_json(body)
-        submit.id = method.delivery_tag
-        matcher.on_submit(submit)
+        submit.delivery_tag = method.delivery_tag
+
+        if event := matcher.match(submit):
+            publish_event(event)
 
     channel.basic_consume(queue="submits", on_message_callback=callback)
 
