@@ -20,12 +20,15 @@ class EventFlow(StateMachine):
     finished = State(final=True)
 
     # transitions
-    # fmt: off
-    confirm = created.to(confirmed, cond="everyone_confirmed") | partially_confirmed.to(confirmed, cond="everyone_confirmed") | created.to(partially_confirmed)
+    confirm = (
+        created.to(confirmed, cond="everyone_confirmed")
+        | partially_confirmed.to(confirmed, cond="everyone_confirmed")
+        | created.to(partially_confirmed)
+    )
+
     start = confirmed.to(started)
     got_reject = confirmed.to(partially_confirmed)
     finish = started.to(finished)
-    # fmt: on
 
     def __init__(self, event: Event):
         self._event = event
@@ -50,7 +53,7 @@ class EventManager:
         except KeyError:
             return None
 
-    def on_event(self, event: Event):
+    def manage(self, event: Event):
         if event.id not in self._events_sm:
             logging.info(f"Got new event {event}")
             self._events_sm[event.id] = EventFlow(event)
@@ -75,10 +78,12 @@ async def main():
     connection = await aiormq.connect("amqp://guest:guest@rabbitmq/")
     channel = await connection.channel()
 
-    events_declare = await channel.queue_declare(queue="events", durable=True)
-    updates_declare = await channel.queue_declare(queue="updates", durable=True)
+    events = await channel.queue_declare(queue="events", durable=True)
+    em_updates = await channel.queue_declare(queue="em_updates", durable=True)
+    user_updates = await channel.queue_declare(queue="user_updates", durable=True)
     await channel.basic_qos(prefetch_size=0)
 
+    # TODO on state change callback
     event_manager = EventManager()
 
     async def on_event_message(message: aiormq.abc.DeliveredMessage):
@@ -87,18 +92,30 @@ async def main():
         if managed_event := event_manager.get_event(event.id):
             await channel.basic_ack(managed_event.delivery_tag)
             managed_event.delivery_tag = message.delivery_tag
+        else:
+            # TODO: move to state change callback
+            update = FlowUpdate(chat_id=event.chat_id, type="created")
+            await channel.basic_publish(
+                update.model_dump_json().encode(),
+                routing_key=em_updates.queue,
+                properties=aiormq.spec.Basic.Properties(delivery_mode=2),
+            )
 
-        event_manager.on_event(event)
+        event_manager.manage(event)
 
     async def on_update_message(message: aiormq.abc.DeliveredMessage):
         update = FlowUpdate.model_validate_json(message.body)
 
         event = event_manager.on_update(update)
-        await channel.basic_publish(event.model_dump_json(), routing_key="events")
+        await channel.basic_publish(
+            event.model_dump_json().encode(),
+            routing_key=events.queue,
+            properties=aiormq.spec.Basic.Properties(delivery_mode=2),
+        )
 
     logging.info("Start consuming")
-    await channel.basic_consume(events_declare.queue, on_event_message)
-    await channel.basic_consume(updates_declare.queue, on_update_message)
+    await channel.basic_consume(events.queue, on_event_message)
+    await channel.basic_consume(user_updates.queue, on_update_message)
 
 
 if __name__ == "__main__":

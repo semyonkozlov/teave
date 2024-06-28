@@ -16,6 +16,7 @@ class UserType(str, Enum):
 
 class Submit(BaseModel):
     id: str = Field(default_factory=lambda: uuid4().hex)
+    chat_id: str = None
 
     user_type: UserType
     event_type: str
@@ -53,8 +54,12 @@ class Event(BaseModel):
     def type(self) -> str:
         return self.lead.event_type
 
+    @property
+    def chat_id(self) -> str:
+        return self.lead.chat_id
+
 
 class FlowUpdate(BaseModel):
-    event_id: str
+    chat_id: str
     type: str
-    data: dict
+    data: dict = {}

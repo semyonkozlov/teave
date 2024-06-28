@@ -1,31 +1,24 @@
 import logging
 
-import pika
-from aiogram import Router
-from aiogram.types import Message
+import aiogram
 from pydantic import ValidationError
 
 from common.models import Submit
+from telegrambridge.middlewares import AsyncQueue
 
 
 log = logging.getLogger(__name__)
-router = Router()
+router = aiogram.Router()
 
 
 @router.message()
-async def process_any_message(message: Message, channel):
+async def process_any_message(message: aiogram.types.Message, submits: AsyncQueue):
     try:
-        Submit.model_validate_json(message.text)
+        submit = Submit.model_validate_json(message.text)
+        submit.chat_id = str(message.chat.id)
 
-        channel.basic_publish(
-            exchange="",
-            routing_key="submits",
-            body=message.text,
-            properties=pika.BasicProperties(
-                delivery_mode=pika.DeliveryMode.Persistent,
-            ),
-        )
-        await message.reply(text=message.text)
+        await submits.publish(submit.model_dump_json().encode())
+        await message.reply(text="submit received")
     except ValidationError as e:
         log.error(e)
         await message.reply(text=str(e))
