@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   # Update this to the name of the service you want to work with in your docker-compose.yml file
   telegrambridge:
@@ -24,5 +23,5 @@ services:
     # Overrides default command so things don't shut down after the process ends.
     command: /bin/sh -c "while sleep 1000; do :; done"
   matcher:
-    command: /bin/sh -c "while sleep 1000; do :; done"
+    profiles: [do_not_run]
  
