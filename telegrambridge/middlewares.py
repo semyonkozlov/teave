@@ -1,19 +1,21 @@
+import pydantic
 import aiogram
-import aiormq
+import aio_pika
 
 
-class AsyncQueue(aiogram.BaseMiddleware):
-    def __init__(self, channel: aiormq.abc.AbstractChannel, queue_name: str):
-        self._channel = channel
-        self._queue_name = queue_name
+class QueueMiddleware(aiogram.BaseMiddleware):
+    def __init__(self, queue: aio_pika.abc.AbstractQueue):
+        self._queue = queue
 
-    async def __call__(self, handler, event: aiogram.types.Message, data):
-        data[self._queue_name] = self
+    async def __call__(self, handler, event: aiogram.types.Message, data: dict):
+        data[self._queue.name] = self
         return await handler(event, data)
 
-    async def publish(self, msg: bytearray):
-        await self._channel.basic_publish(
-            msg,
-            routing_key=self._queue_name,
-            properties=aiormq.spec.Basic.Properties(delivery_mode=2),  # persistent
+    async def publish(self, msg: pydantic.BaseModel):
+        await self._queue.channel.default_exchange.publish(
+            aio_pika.Message(
+                msg.model_dump_json().encode(),
+                delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
+            ),
+            routing_key=self._queue.name,
         )

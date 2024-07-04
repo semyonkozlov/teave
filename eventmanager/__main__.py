@@ -25,7 +25,6 @@ class EventFlow(StateMachine):
         | partially_confirmed.to(confirmed, cond="everyone_confirmed")
         | created.to(partially_confirmed)
     )
-
     start = confirmed.to(started)
     got_reject = confirmed.to(partially_confirmed)
     finish = started.to(finished)
