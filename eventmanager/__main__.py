@@ -1,9 +1,10 @@
 import asyncio
 import logging
 
-import aiormq
+import aio_pika
 from statemachine import State, StateMachine
 
+from common.pika_pydantic import ModelMessage
 from common.models import Event, FlowUpdate
 
 
@@ -74,53 +75,53 @@ class EventManager:
 async def main():
     logging.basicConfig(level=logging.INFO)
 
-    connection = await aiormq.connect("amqp://guest:guest@rabbitmq/")
-    channel = await connection.channel()
+    connection = await aio_pika.connect("amqp://guest:guest@rabbitmq/")
+    async with connection:
+        channel = await connection.channel()
 
-    events = await channel.queue_declare(queue="events", durable=True)
-    em_updates = await channel.queue_declare(queue="em_updates", durable=True)
-    user_updates = await channel.queue_declare(queue="user_updates", durable=True)
-    await channel.basic_qos(prefetch_size=0)
+        events = await channel.declare_queue("events", durable=True)
+        em_updates = await channel.declare_queue("em_updates", durable=True)
+        user_updates = await channel.declare_queue("user_updates", durable=True)
+        await channel.set_qos(prefetch_size=0)
 
-    # TODO on state change callback
-    event_manager = EventManager()
+        # TODO on state change callback
+        event_manager = EventManager()
 
-    async def on_event_message(message: aiormq.abc.DeliveredMessage):
-        event = Event.model_validate_json(message.body)
+        async def on_event_message(message: aio_pika.abc.AbstractIncomingMessage):
+            event = Event.from_message(message)
 
-        if managed_event := event_manager.get_event(event.id):
-            await channel.basic_ack(managed_event.delivery_tag)
-            managed_event.delivery_tag = message.delivery_tag
-        else:
-            # TODO: move to state change callback
-            update = FlowUpdate(chat_id=event.chat_id, type="created")
-            await channel.basic_publish(
-                update.model_dump_json().encode(),
-                routing_key=em_updates.queue,
-                properties=aiormq.spec.Basic.Properties(delivery_mode=2),
+            if managed_event := event_manager.get_event(event.id):
+                # we are already managing this event, drop old message and update tag
+                await managed_event.ack_delivery(channel)
+                managed_event._delivery_tag = event._delivery_tag
+            else:
+                # TODO: move to state change callback
+                update = FlowUpdate(chat_id=event.chat_id, type="created")
+                await channel.default_exchange.publish(
+                    ModelMessage(update),
+                    routing_key=em_updates.name,
+                )
+
+            event_manager.manage(event)
+
+        async def on_update_message(message: aio_pika.abc.AbstractIncomingMessage):
+            update = FlowUpdate.from_message(message)
+
+            event = event_manager.on_update(update)
+            await channel.default_exchange.publish(
+                ModelMessage(event),
+                routing_key=events.name,
             )
 
-        event_manager.manage(event)
+        logging.info("Start consuming")
+        await events.consume(on_event_message)
+        await user_updates.consume(on_update_message)
 
-    async def on_update_message(message: aiormq.abc.DeliveredMessage):
-        update = FlowUpdate.model_validate_json(message.body)
-
-        event = event_manager.on_update(update)
-        await channel.basic_publish(
-            event.model_dump_json().encode(),
-            routing_key=events.queue,
-            properties=aiormq.spec.Basic.Properties(delivery_mode=2),
-        )
-
-    logging.info("Start consuming")
-    await channel.basic_consume(events.queue, on_event_message)
-    await channel.basic_consume(user_updates.queue, on_update_message)
+        await asyncio.Future()
 
 
 if __name__ == "__main__":
     try:
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(main())
-        loop.run_forever()
+        asyncio.run(main())
     except KeyboardInterrupt:
         pass

@@ -27,11 +27,10 @@ async def main():
         dp = aiogram.Dispatcher()
 
         async def on_em_update(message: aio_pika.abc.AbstractIncomingMessage):
-            update = FlowUpdate.model_validate_json(message.body.decode())
+            update = FlowUpdate.from_message(message)
             await bot.send_message(chat_id=update.chat_id, text=update.type)
-            await message.ack()
 
-        await em_updates.consume(on_em_update)
+        await em_updates.consume(on_em_update, no_ack=True)
 
         dp.include_router(handlers.router)
         dp.message.middleware(QueueMiddleware(submits))

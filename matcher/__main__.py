@@ -1,10 +1,11 @@
+import asyncio
 from collections import defaultdict
-from collections.abc import Callable
 import logging
 
-import pika
+import aio_pika
 
 from common.models import Event, Submit, UserType
+from common.pika_pydantic import ModelMessage
 
 
 class Matcher:
@@ -63,52 +64,45 @@ class Matcher:
         return True
 
 
-def main():
+async def main():
     logging.basicConfig(level=logging.INFO)
 
-    connection = pika.BlockingConnection(pika.ConnectionParameters("rabbitmq"))
-    channel = connection.channel()
+    connection = await aio_pika.connect("amqp://guest:guest@rabbitmq/")
+    async with connection:
+        channel = await connection.channel()
 
-    channel.queue_declare(queue="submits", durable=True)
-    channel.queue_declare(queue="events", durable=True)
-    channel.basic_qos(prefetch_size=0)
+        submits = await channel.declare_queue("submits", durable=True)
+        events = await channel.declare_queue("events", durable=True)
+        await channel.set_qos(prefetch_size=0)
 
-    def ack_submits(event: Event):
-        for submit in event.followers:
-            channel.basic_ack(delivery_tag=submit.delivery_tag)
-        channel.basic_ack(delivery_tag=event.lead.delivery_tag)
+        async def ack_submits(event: Event):
+            for submit in event.followers:
+                await submit.ack_delivery(channel)
+            await event.lead.ack_delivery(channel)
 
-    def publish_event(event: Event):
-        assert event.packed
-        logging.info(f"Event {event} is packed, publishing...")
+        async def publish_event(event: Event):
+            assert event.packed
+            logging.info(f"Event {event} is packed, publishing...")
 
-        ack_submits(event)
-        channel.basic_publish(
-            exchange="",
-            routing_key="events",
-            body=event.model_dump_json(exclude_none=True),
-            properties=pika.BasicProperties(
-                delivery_mode=pika.DeliveryMode.Persistent,
-            ),
-        )
+            await ack_submits(event)
+            await channel.default_exchange.publish(
+                ModelMessage(event), routing_key=events.name
+            )
 
-    matcher = Matcher()
+        matcher = Matcher()
 
-    def callback(ch, method, properties, body):
-        submit = Submit.model_validate_json(body)
-        submit.delivery_tag = method.delivery_tag
+        async def on_submit(message: aio_pika.abc.AbstractIncomingMessage):
+            submit = Submit.from_message(message)
+            if event := matcher.match(submit):
+                await publish_event(event)
 
-        if event := matcher.match(submit):
-            publish_event(event)
-
-    channel.basic_consume(queue="submits", on_message_callback=callback)
-
-    logging.info("Start consuming")
-    channel.start_consuming()
+        logging.info("Start consuming")
+        await submits.consume(on_submit)
+        await asyncio.Future()
 
 
 if __name__ == "__main__":
     try:
-        main()
+        asyncio.run(main())
     except KeyboardInterrupt:
         pass

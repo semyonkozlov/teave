@@ -4,6 +4,8 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
+from common.pika_pydantic import TeaveModel
+
 
 class Location(BaseModel):
     city: str
@@ -14,7 +16,7 @@ class UserType(str, Enum):
     FOLLOWER = "follower"
 
 
-class Submit(BaseModel):
+class Submit(TeaveModel):
     id: str = Field(default_factory=lambda: uuid4().hex)
     chat_id: str = None
 
@@ -28,7 +30,7 @@ class Submit(BaseModel):
     delivery_tag: int = 0
 
 
-class Event(BaseModel):
+class Event(TeaveModel):
     id: str = Field(default_factory=lambda: uuid4().hex)
 
     lead: Submit
@@ -59,7 +61,7 @@ class Event(BaseModel):
         return self.lead.chat_id
 
 
-class FlowUpdate(BaseModel):
+class FlowUpdate(TeaveModel):
     chat_id: str
     type: str
     data: dict = {}
