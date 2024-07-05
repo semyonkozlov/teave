@@ -2,6 +2,7 @@ import asyncio
 import logging
 
 import aio_pika
+from aio_pika.patterns import RPC
 from statemachine import State, StateMachine
 
 from common.pika_pydantic import ModelMessage
@@ -53,6 +54,9 @@ class EventManager:
         except KeyError:
             return None
 
+    def list_events(self) -> list[Event]:
+        return list(sm.event for sm in self._events_sm.values())
+
     def manage(self, event: Event):
         if event.id not in self._events_sm:
             logging.info(f"Got new event {event}")
@@ -69,6 +73,7 @@ class EventManager:
             )
 
     def on_update(self, update: FlowUpdate) -> Event:
+        # TODO
         return self._events_sm[update.event_id].send(update.type)
 
 
@@ -113,7 +118,14 @@ async def main():
                 routing_key=events.name,
             )
 
-        logging.info("Start consuming")
+        async def list_events() -> list[Event]:
+            return event_manager.list_events()
+
+        logging.info("Register RPC")
+        rpc = await RPC.create(channel)
+        await rpc.register("list_events", list_events, auto_delete=True)
+
+        logging.info("Register consumers")
         await events.consume(on_event_message)
         await user_updates.consume(on_update_message)
 

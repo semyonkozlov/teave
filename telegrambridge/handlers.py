@@ -1,6 +1,8 @@
+from collections.abc import Awaitable
 import logging
 
 import aiogram
+from aiogram.filters import Command
 from pydantic import ValidationError
 
 from common.models import Submit
@@ -9,6 +11,11 @@ from telegrambridge.middlewares import QueueMiddleware
 
 log = logging.getLogger(__name__)
 router = aiogram.Router()
+
+
+@router.message(Command(commands=["events"]))
+async def handle_events(message: aiogram.types.Message, list_events: Awaitable):
+    await message.reply(str(await list_events()))
 
 
 @router.message()

@@ -7,7 +7,7 @@ import aio_pika
 
 from common.models import FlowUpdate
 import telegrambridge.handlers as handlers
-from telegrambridge.middlewares import QueueMiddleware
+from telegrambridge.middlewares import QueueMiddleware, RpcMiddleware
 
 
 async def main():
@@ -30,11 +30,17 @@ async def main():
             update = FlowUpdate.from_message(message)
             await bot.send_message(chat_id=update.chat_id, text=update.type)
 
+        logging.info("Register consumers")
         await em_updates.consume(on_em_update, no_ack=True)
 
+        logging.info("Create RPC-client")
+        rpc = await aio_pika.patterns.RPC.create(channel)
+
+        logging.info("Set up bot handlers")
         dp.include_router(handlers.router)
         dp.message.middleware(QueueMiddleware(submits))
         dp.message.middleware(QueueMiddleware(user_updates))
+        dp.message.middleware(RpcMiddleware(rpc.proxy.list_events))
 
         await bot.delete_webhook(drop_pending_updates=True)
         await dp.start_polling(bot)
