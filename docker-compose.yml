@@ -27,9 +27,9 @@ services:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
       test: rabbitmq-diagnostics check_port_connectivity
-      interval: 1s
+      interval: 10s
       timeout: 3s
-      retries: 30
+      retries: 5
 
 volumes:
   rabbitmq_data:
