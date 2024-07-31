@@ -1,4 +1,5 @@
-aiogram==3.8.0
 aio-pika==9.4.1
+aiogoogle==5.12.0
+aiogram==3.8.0
 pydantic==2.7.4
 python-statemachine==2.3.1

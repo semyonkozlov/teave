@@ -163,3 +163,5 @@ cython_debug/
  
 # Project specific
 TODO.txt
+# TODO: use docker swarm
+telegrambridge/gcredentials.json
