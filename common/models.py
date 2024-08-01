@@ -1,10 +1,13 @@
 from datetime import datetime
-from enum import Enum
-from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from common.pika_pydantic import TeaveModel
+
+
+class Config(BaseModel):
+    max_participants: int | None = None
+    min_participants: int | None = None
 
 
 class Recurrence(BaseModel):
@@ -12,56 +15,7 @@ class Recurrence(BaseModel):
     recurring_event_id: str | None = None
 
 
-class UserType(str, Enum):
-    LEAD = "lead"
-    FOLLOWER = "follower"
-
-
-# TODO what is the relatiotionship between Submit, Event, Announcement? need refactor prbly
-
-
-class Submit(TeaveModel):
-    id: str = Field(default_factory=lambda: uuid4().hex)
-    chat_id: str = None
-
-    user_type: UserType
-    event_type: str
-
-    start: datetime | None = None
-    end: datetime | None = None
-    num_attendees: int
-
-
 class Event(TeaveModel):
-    id: str = Field(default_factory=lambda: uuid4().hex)
-
-    lead: Submit
-    followers: list[Submit] = []
-    state: str = "created"
-    num_confirmations: int = 0
-
-    @property
-    def confirmed(self) -> bool:
-        return self.num_confirmations == self.num_attendees
-
-    @property
-    def num_attendees(self) -> int:
-        return self.lead.num_attendees
-
-    @property
-    def packed(self) -> bool:
-        return len(self.followers) + 1 >= self.lead.num_attendees
-
-    @property
-    def type(self) -> str:
-        return self.lead.event_type
-
-    @property
-    def chat_id(self) -> str:
-        return self.lead.chat_id
-
-
-class Announcement(TeaveModel):
     id: str
 
     summary: str
@@ -71,12 +25,21 @@ class Announcement(TeaveModel):
     start: datetime
     end: datetime
 
-    recurrence: Recurrence
+    recurrence: Recurrence | None = None
+
+    participant_ids: list[str] = []
+    state: str = "created"
+
+    config: Config | None = None
+
+    communication_ids: list[str]
 
     @classmethod
-    def from_gcal_event(cls, gcal_event_item: dict) -> "Announcement":
+    def from_gcal_event(
+        cls, gcal_event_item: dict, communication_ids: list[str]
+    ) -> "Event":
         _ = gcal_event_item
-        return Announcement(
+        return Event(
             id=_["id"],
             summary=_["summary"],
             description=_["description"],
@@ -87,10 +50,19 @@ class Announcement(TeaveModel):
                 schedule=_.get("recurrence"),
                 recurring_event_id=_.get("recurringEventId"),
             ),
+            communication_ids=communication_ids,
         )
+
+    @property
+    def num_participants(self) -> int:
+        return len(self.participant_ids)
+
+    @property
+    def packed(self) -> bool:
+        return self.num_participants >= self.config.max_participants
 
 
 class FlowUpdate(TeaveModel):
-    chat_id: str
+    communication_ids: list[str] = []
     type: str
     data: dict = {}

@@ -101,7 +101,9 @@ async def main():
                 managed_event._delivery_tag = event._delivery_tag
             else:
                 # TODO: move to state change callback
-                update = FlowUpdate(chat_id=event.chat_id, type="created")
+                update = FlowUpdate(
+                    communication_ids=event.communication_ids, type="created"
+                )
                 await channel.default_exchange.publish(
                     ModelMessage(update),
                     routing_key=em_updates.name,

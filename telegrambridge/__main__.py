@@ -24,7 +24,7 @@ async def main():
         channel = await connection.channel()
         await channel.set_qos(prefetch_count=0)
 
-        announcements = await channel.declare_queue("announcements", durable=True)
+        events = await channel.declare_queue("events", durable=True)
         user_updates = await channel.declare_queue("user_updates", durable=True)
         em_updates = await channel.declare_queue("em_updates", durable=True)
 
@@ -34,7 +34,8 @@ async def main():
 
         async def on_em_update(message: aio_pika.abc.AbstractIncomingMessage):
             update = FlowUpdate.from_message(message)
-            await bot.send_message(chat_id=update.chat_id, text=update.type)
+            for chat_id in update.communication_ids:
+                await bot.send_message(chat_id=chat_id, text=update.type)
 
         logging.info("Register consumers")
         await em_updates.consume(on_em_update, no_ack=True)
@@ -49,7 +50,7 @@ async def main():
         dp.include_router(handlers.router)
 
         logging.info("Init middlewares")
-        dp.message.middleware(QueueMiddleware(announcements))
+        dp.message.middleware(QueueMiddleware(events))
         dp.message.middleware(QueueMiddleware(user_updates))
         dp.message.middleware(RpcMiddleware(rpc.proxy.list_events))
         dp.message.middleware(CalendarMiddleware(aiogoogle, calendar_api))

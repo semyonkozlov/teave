@@ -8,7 +8,7 @@ from aiogram import F
 from aiogram.filters import Command
 from pydantic import ValidationError
 
-from common.models import Announcement, Submit
+from common.models import Event
 from telegrambridge.middlewares import CalendarMiddleware, QueueMiddleware
 
 
@@ -25,32 +25,25 @@ pattern = re.compile(r"https://calendar\.google\.com/calendar/u/0\?cid=(.*)")
 
 
 @router.message(F.text.regexp(pattern))
-async def handle_create_event_using_calendar_link(
+async def handle_create_events_from_gcal_link(
     message: aiogram.types.Message,
     calendar: CalendarMiddleware,
-    announcements: QueueMiddleware,
+    events: QueueMiddleware,
 ):
     calendar_id_b64 = pattern.match(message.text).group(1)
     calendar_id = base64.b64decode(calendar_id_b64).decode()
 
-    # TODO avoid double managing the same calendar, bu watch new events
+    # TODO avoid double managing the same calendar, but watch new events
 
-    events = await calendar.list_events(calendar_id)
-    for event_item in events["items"]:
-        await announcements.publish(Announcement.from_gcal_event(event_item))
+    gcal_events = await calendar.list_events(calendar_id)
+    for item in gcal_events["items"]:
+        event = Event.from_gcal_event(item, communication_ids=[str(message.chat.id)])
+        await events.publish(event)
 
-    num = len(events["items"])
+    num = len(gcal_events["items"])
     await message.reply(text=f"Got {num} events")
 
 
 @router.message()
-async def process_any_message(message: aiogram.types.Message, submits: QueueMiddleware):
-    try:
-        submit = Submit.model_validate_json(message.text)
-        submit.chat_id = str(message.chat.id)
-
-        await submits.publish(submit)
-        await message.reply(text="submit received")
-    except ValidationError as e:
-        log.error(e)
-        await message.reply(text=str(e))
+async def process_any_message(message: aiogram.types.Message):
+    await message.reply(text="TODO Default handler")
