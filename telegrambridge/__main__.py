@@ -24,7 +24,7 @@ async def main():
         channel = await connection.channel()
         await channel.set_qos(prefetch_count=0)
 
-        submits = await channel.declare_queue("submits", durable=True)
+        announcements = await channel.declare_queue("announcements", durable=True)
         user_updates = await channel.declare_queue("user_updates", durable=True)
         em_updates = await channel.declare_queue("em_updates", durable=True)
 
@@ -49,7 +49,7 @@ async def main():
         dp.include_router(handlers.router)
 
         logging.info("Init middlewares")
-        dp.message.middleware(QueueMiddleware(submits))
+        dp.message.middleware(QueueMiddleware(announcements))
         dp.message.middleware(QueueMiddleware(user_updates))
         dp.message.middleware(RpcMiddleware(rpc.proxy.list_events))
         dp.message.middleware(CalendarMiddleware(aiogoogle, calendar_api))

@@ -1,0 +1,115 @@
+[
+    {
+      "kind": "calendar#event",
+      "etag": "\"3444675476884000\"",
+      "id": "2gud232jsatd8pmnu0mnng0if2",
+      "status": "confirmed",
+      "htmlLink": "https://www.google.com/calendar/event?eid=Mmd1ZDIzMmpzYXRkOHBtbnUwbW5uZzBpZjJfMjAyNDA3MzFUMTcwMDAwWiAxYjljNDg2MzAyYjE0NjU2Y2ZiMTBkYmRjMjgyNDBiMzkwNTRmYzZiMmMyMDYwOTI4YzRjNWQwYWVjY2JiNGEyQGc",
+      "created": "2024-07-30T10:10:32.000Z",
+      "updated": "2024-07-30T11:08:58.442Z",
+      "summary": "Тренировка 2",
+      "description": "Тренировка по настольному теннису",
+      "location": "Arena 2, 2 University St, T'bilisi, Georgia",
+      "creator": {
+        "email": "semkozloff@gmail.com"
+      },
+      "organizer": {
+        "email": "1b9c486302b14656cfb10dbdc28240b39054fc6b2c2060928c4c5d0aeccbb4a2@group.calendar.google.com",
+        "displayName": "TeaveTest",
+        "self": true
+      },
+      "start": {
+        "dateTime": "2024-07-31T21:00:00+04:00",
+        "timeZone": "Asia/Tbilisi"
+      },
+      "end": {
+        "dateTime": "2024-07-31T23:00:00+04:00",
+        "timeZone": "Asia/Tbilisi"
+      },
+      "recurrence": [
+        "RRULE:FREQ=WEEKLY;WKST=MO;BYDAY=WE,MO,FR"
+      ],
+      "iCalUID": "2gud232jsatd8pmnu0mnng0if2@google.com",
+      "sequence": 0,
+      "reminders": {
+        "useDefault": true
+      },
+      "eventType": "default"
+    },
+    {
+      "kind": "calendar#event",
+      "etag": "\"3444675820894000\"",
+      "id": "4o41njojv9o798shp8i5c55p5f",
+      "status": "confirmed",
+      "htmlLink": "https://www.google.com/calendar/event?eid=NG80MW5qb2p2OW83OThzaHA4aTVjNTVwNWZfMjAyNDA3MzFUMTUwMDAwWiAxYjljNDg2MzAyYjE0NjU2Y2ZiMTBkYmRjMjgyNDBiMzkwNTRmYzZiMmMyMDYwOTI4YzRjNWQwYWVjY2JiNGEyQGc",
+      "created": "2024-07-29T17:00:01.000Z",
+      "updated": "2024-07-30T11:11:50.447Z",
+      "summary": "Тренировка 1",
+      "description": "Тренировка по настольному теннису",
+      "location": "Arena 2, 2 University St, T'bilisi, Georgia",
+      "creator": {
+        "email": "semkozloff@gmail.com"
+      },
+      "organizer": {
+        "email": "1b9c486302b14656cfb10dbdc28240b39054fc6b2c2060928c4c5d0aeccbb4a2@group.calendar.google.com",
+        "displayName": "TeaveTest",
+        "self": true
+      },
+      "start": {
+        "dateTime": "2024-07-31T19:00:00+04:00",
+        "timeZone": "Asia/Tbilisi"
+      },
+      "end": {
+        "dateTime": "2024-07-31T21:00:00+04:00",
+        "timeZone": "Asia/Tbilisi"
+      },
+      "recurrence": [
+        "RRULE:FREQ=WEEKLY;WKST=MO;BYDAY=MO,WE,FR"
+      ],
+      "iCalUID": "4o41njojv9o798shp8i5c55p5f@google.com",
+      "sequence": 1,
+      "reminders": {
+        "useDefault": true
+      },
+      "eventType": "default"
+    },
+    {
+      "kind": "calendar#event",
+      "etag": "\"3444675820894000\"",
+      "id": "4o41njojv9o798shp8i5c55p5f_20240802T150000Z",
+      "status": "confirmed",
+      "htmlLink": "https://www.google.com/calendar/event?eid=NG80MW5qb2p2OW83OThzaHA4aTVjNTVwNWZfMjAyNDA4MDJUMTUwMDAwWiAxYjljNDg2MzAyYjE0NjU2Y2ZiMTBkYmRjMjgyNDBiMzkwNTRmYzZiMmMyMDYwOTI4YzRjNWQwYWVjY2JiNGEyQGc",
+      "created": "2024-07-29T17:00:01.000Z",
+      "updated": "2024-07-30T11:11:50.447Z",
+      "summary": "Тренировка 1",
+      "description": "Тренировка по настольному теннису",
+      "location": "Arena 2, 2 University St, T'bilisi, Georgia",
+      "creator": {
+        "email": "semkozloff@gmail.com"
+      },
+      "organizer": {
+        "email": "1b9c486302b14656cfb10dbdc28240b39054fc6b2c2060928c4c5d0aeccbb4a2@group.calendar.google.com",
+        "displayName": "TeaveTest",
+        "self": true
+      },
+      "start": {
+        "dateTime": "2024-08-02T18:00:00+04:00",
+        "timeZone": "Asia/Tbilisi"
+      },
+      "end": {
+        "dateTime": "2024-08-02T20:00:00+04:00",
+        "timeZone": "Asia/Tbilisi"
+      },
+      "recurringEventId": "4o41njojv9o798shp8i5c55p5f",
+      "originalStartTime": {
+        "dateTime": "2024-08-02T19:00:00+04:00",
+        "timeZone": "Asia/Tbilisi"
+      },
+      "iCalUID": "4o41njojv9o798shp8i5c55p5f@google.com",
+      "sequence": 2,
+      "reminders": {
+        "useDefault": true
+      },
+      "eventType": "default"
+    }
+  ]
