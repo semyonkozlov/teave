@@ -7,15 +7,15 @@ from common.errors import EventDescriptionParsingError
 from common.pika_pydantic import TeaveModel
 
 
-class Config(BaseModel):
-    max_participants: int | None = None
-    min_participants: int | None = None
-    poll_at: datetime | None = None
+class EventConfig(BaseModel):
+    max: int | None = None
+    min: int | None = None
+    poll_at: str | None = None
 
     @staticmethod
-    def from_description(description: str) -> "Config | None":
+    def from_description(description: str) -> "EventConfig | None":
         try:
-            parsed = yaml.safe_load(description)
+            parsed = yaml.load(description, Loader=yaml.BaseLoader)
         except yaml.YAMLError as e:
             raise EventDescriptionParsingError from e
 
@@ -26,7 +26,7 @@ class Config(BaseModel):
         if not config:
             return None
 
-        return Config(**config)
+        return EventConfig(**config)
 
 
 class Recurrence(BaseModel):
@@ -50,7 +50,7 @@ class Event(TeaveModel):
     participant_ids: list[str] = []
     state: str = "created"
 
-    config: Config | None = None
+    config: EventConfig | None = None
 
     communication_ids: list[str]
 
@@ -69,7 +69,7 @@ class Event(TeaveModel):
                 schedule=_.get("recurrence"),
                 recurring_event_id=_.get("recurringEventId"),
             ),
-            config=Config.from_description(_["description"]),
+            config=EventConfig.from_description(_["description"]),
             communication_ids=communication_ids,
         )
 
@@ -79,7 +79,7 @@ class Event(TeaveModel):
 
     @property
     def packed(self) -> bool:
-        return self.num_participants >= self.config.max_participants
+        return self.num_participants >= self.config.max
 
 
 class FlowUpdate(TeaveModel):
