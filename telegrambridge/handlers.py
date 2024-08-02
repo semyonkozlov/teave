@@ -6,8 +6,8 @@ import re
 import aiogram
 from aiogram import F
 from aiogram.filters import Command
-from pydantic import ValidationError
 
+from common.errors import EventDescriptionParsingError
 from common.models import Event
 from telegrambridge.middlewares import CalendarMiddleware, QueueMiddleware
 
@@ -36,12 +36,23 @@ async def handle_create_events_from_gcal_link(
     # TODO avoid double managing the same calendar, but watch new events
 
     gcal_events = await calendar.list_events(calendar_id)
+    events_to_publish = []
     for item in gcal_events["items"]:
-        event = Event.from_gcal_event(item, communication_ids=[str(message.chat.id)])
+        try:
+            events_to_publish.append(
+                Event.from_gcal_event(item, communication_ids=[str(message.chat.id)])
+            )
+        except EventDescriptionParsingError as e:
+            event_link = item["htmlLink"]
+            await message.reply(text=f"Event {event_link} has bad description: {e}")
+            raise
+
+    for event in events_to_publish:
         await events.publish(event)
 
-    num = len(gcal_events["items"])
-    await message.reply(text=f"Got {num} events")
+    num = len(events_to_publish)
+    links = "\n".join(e.link for e in events_to_publish)
+    await message.reply(text=f"Got {num} events:\n {links}")
 
 
 @router.message()
