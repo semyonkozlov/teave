@@ -24,14 +24,14 @@ async def handle_list_events(message: aiogram.types.Message, list_events: Awaita
 pattern = re.compile(r"https://calendar\.google\.com/calendar/u/0\?cid=(.*)")
 
 
-@router.message(F.text.regexp(pattern))
+@router.message(F.text.regexp(pattern).as_("match"))
 async def handle_create_events_from_gcal_link(
     message: aiogram.types.Message,
     calendar: CalendarMiddleware,
     events: QueueMiddleware,
+    match: re.Match[str],
 ):
-    calendar_id_b64 = pattern.match(message.text).group(1)
-    calendar_id = base64.b64decode(calendar_id_b64).decode()
+    calendar_id = base64.b64decode(match.group(1)).decode()
 
     # TODO avoid double managing the same calendar, but watch new events
 
