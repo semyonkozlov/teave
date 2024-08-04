@@ -4,19 +4,19 @@ import logging
 
 import aio_pika
 
-from common.models import Event, Submit, UserType
+from common.models import Teavent, Submit, UserType
 from common.pika_pydantic import ModelMessage
 
 
 class Matcher:
     def __init__(self):
-        self._pending_events: dict[str, list[Event]] = defaultdict(list)
+        self._pending_events: dict[str, list[Teavent]] = defaultdict(list)
         self._unmatched_submits: dict[str, list[Submit]] = defaultdict(list)
 
-    def match(self, submit: Submit) -> Event | None:
+    def match(self, submit: Submit) -> Teavent | None:
         match submit.user_type:
             case UserType.LEAD:
-                event = Event(lead=submit)
+                event = Teavent(lead=submit)
 
                 still_unmatched = list()
 
@@ -46,7 +46,7 @@ class Matcher:
 
         return None
 
-    def _match(self, submit: Submit, event: Event):
+    def _match(self, submit: Submit, event: Teavent):
         if submit.user_type != UserType.FOLLOWER:
             raise ValueError(f"Can match only submits of type {UserType.FOLLOWER}")
 
@@ -75,12 +75,12 @@ async def main():
         events = await channel.declare_queue("events", durable=True)
         await channel.set_qos(prefetch_size=0)
 
-        async def ack_submits(event: Event):
+        async def ack_submits(event: Teavent):
             for submit in event.followers:
                 await submit.ack_delivery(channel)
             await event.lead.ack_delivery(channel)
 
-        async def publish_event(event: Event):
+        async def publish_event(event: Teavent):
             assert event.packed
             logging.info(f"Event {event} is packed, publishing...")
 

@@ -7,14 +7,14 @@ from attr import define
 from statemachine import State, StateMachine
 
 from common.pika_pydantic import ModelMessage
-from common.models import Event, FlowUpdate
+from common.models import Teavent, FlowUpdate
 
 
 class InconsistencyError(RuntimeError):
     """Inconsistency data found"""
 
 
-class EventFlow(StateMachine):
+class TeaventFlow(StateMachine):
     # states
     created = State(initial=True)
     not_enough_participants = State()
@@ -31,17 +31,20 @@ class EventFlow(StateMachine):
     # fmt: on
 
     @property
-    def event(self) -> Event:
+    def teavent(self) -> Teavent:
         return self.model
 
 
-@define
+@define(hash=True)
 class QueueView:
 
-    _events_queue: aio_pika.abc.AbstractQueue
+    _teavents_queue: aio_pika.abc.AbstractQueue
     _outgoing_updates_queue: aio_pika.abc.AbstractQueue
 
     _channel: aio_pika.abc.AbstractChannel
+
+    async def on_enter_state(self, state: State, model: Teavent):
+        await self.publish_update(FlowUpdate.for_teavent(model, type=state.name))
 
     async def publish_update(self, outgoing_update: FlowUpdate):
         await self._channel.default_exchange.publish(
@@ -49,50 +52,52 @@ class QueueView:
             routing_key=self._outgoing_updates_queue.name,
         )
 
-    async def publish_event(self, event: Event):
+    async def publish_teavent(self, teavent: Teavent):
         await self._channel.default_exchange.publish(
-            ModelMessage(event),
-            routing_key=self._events_queue.name,
+            ModelMessage(teavent),
+            routing_key=self._teavents_queue.name,
         )
 
-    async def ack_event(self, event: Event, new_delivery_tag: str):
+    async def ack_teavent(self, teavent: Teavent, new_delivery_tag: str):
         "Drop old message from queue and update delivery tag"
 
-        await event.ack_delivery(self._channel)
-        event._delivery_tag = new_delivery_tag
+        await teavent.ack_delivery(self._channel)
+        teavent._delivery_tag = new_delivery_tag
 
 
 @define
-class EventManager:
+class TeaventManager:
 
     _view: QueueView  # TODO subscribe view to events_sm
-    _events_sm: dict[str, EventFlow] = {}
+    _teavents_sm: dict[str, TeaventFlow] = {}
 
-    def get_event(self, event_id: str) -> Event | None:
+    def get_event(self, event_id: str) -> Teavent | None:
         try:
-            return self._events_sm[event_id].event
+            return self._teavents_sm[event_id].teavent
         except KeyError:
             return None
 
-    def list_events(self) -> list[Event]:
-        return list(sm.event for sm in self._events_sm.values())
+    def list_events(self) -> list[Teavent]:
+        return list(sm.teavent for sm in self._teavents_sm.values())
 
-    async def _setup_timers(self, event: Event): ...
+    async def _setup_timers(self, teavent: Teavent): ...
 
-    async def process_event(self, event: Event):
-        if event.id not in self._events_sm:
+    async def process_event(self, event: Teavent):
+        if event.id not in self._teavents_sm:
             logging.info(f"Got new event {event}")
-            self._events_sm[event.id] = EventFlow(model=event)
+            self._teavents_sm[event.id] = TeaventFlow(
+                model=event, listeners=[self._view]
+            )
             await self._setup_timers(event)
             return
 
         logging.info(f"Got known event {event}")
-        sm = self._events_sm[event.id]
+        sm = self._teavents_sm[event.id]
 
-        self._check_consistency(event, sm.event)
-        await self._view.ack_event(sm.event, new_delivery_tag=event._delivery_tag)
+        self._check_consistency(event, sm.teavent)
+        await self._view.ack_teavent(sm.teavent, new_delivery_tag=event._delivery_tag)
 
-    def _check_consistency(self, new_event: Event, managed_event: Event):
+    def _check_consistency(self, new_event: Teavent, managed_event: Teavent):
         assert new_event.id == managed_event.id
 
         if new_event.state != managed_event.state:
@@ -101,8 +106,7 @@ class EventManager:
             )
 
     async def process_update(self, update: FlowUpdate):
-        updated_event = self._events_sm[update.event_id].send(update.type)
-        await self._view.publish_event(updated_event)
+        await self._teavents_sm[update.event_id].send(update.type)
 
 
 async def main():
@@ -118,12 +122,12 @@ async def main():
         await channel.set_qos(prefetch_size=0)
 
         qview = QueueView(events, outgoing_updates, channel)
-        event_manager = EventManager(view=qview)
+        teavent_manager = TeaventManager(view=qview)
 
         logging.info("Register RPC")
 
-        async def list_events() -> list[Event]:
-            return event_manager.list_events()
+        async def list_events() -> list[Teavent]:
+            return teavent_manager.list_events()
 
         rpc = await RPC.create(channel)
         await rpc.register("list_events", list_events, auto_delete=True)
@@ -131,10 +135,10 @@ async def main():
         logging.info("Register consumers")
 
         async def on_event_message(message: aio_pika.abc.AbstractIncomingMessage):
-            await event_manager.process_event(Event.from_message(message))
+            await teavent_manager.process_event(Teavent.from_message(message))
 
         async def on_update_message(message: aio_pika.abc.AbstractIncomingMessage):
-            await event_manager.process_update(FlowUpdate.from_message(message))
+            await teavent_manager.process_update(FlowUpdate.from_message(message))
 
         await events.consume(on_event_message)
         await incoming_updates.consume(on_update_message)

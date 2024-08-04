@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from common.models import EventConfig, Event
+from common.models import EventConfig, Teavent
 
 
 @pytest.fixture
@@ -36,4 +36,4 @@ def test_config_from_description(description):
 
 def test_event_from_gcal_event(gcal_event_items):
     for item in gcal_event_items:
-        Event.from_gcal_event(item, communication_ids=[])
+        Teavent.from_gcal_event(item, communication_ids=[])

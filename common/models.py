@@ -33,7 +33,7 @@ class Recurrence(BaseModel):
     recurring_event_id: str | None = None
 
 
-class Event(TeaveModel):
+class Teavent(TeaveModel):
     id: str
     link: str
 
@@ -54,9 +54,11 @@ class Event(TeaveModel):
     communication_ids: list[str]
 
     @staticmethod
-    def from_gcal_event(gcal_event_item: dict, communication_ids: list[str]) -> "Event":
+    def from_gcal_event(
+        gcal_event_item: dict, communication_ids: list[str]
+    ) -> "Teavent":
         _ = gcal_event_item
-        return Event(
+        return Teavent(
             id=_["id"],
             link=_["htmlLink"],
             summary=_["summary"],
@@ -82,6 +84,18 @@ class Event(TeaveModel):
 
 
 class FlowUpdate(TeaveModel):
+    event_id: str
     communication_ids: list[str] = []
     type: str
     data: dict = {}
+
+    @staticmethod
+    def for_teavent(self, event: Teavent, type: str, **data) -> "FlowUpdate":
+        "Create FlowUpdate fro event `event`"
+
+        return FlowUpdate(
+            event_id=event.id,
+            communication_ids=event.communication_ids,
+            type=type,
+            data=data,
+        )

@@ -8,7 +8,7 @@ from aiogram import F
 from aiogram.filters import Command
 
 from common.errors import EventDescriptionParsingError
-from common.models import Event
+from common.models import Teavent
 from telegrambridge.middlewares import CalendarMiddleware, QueueMiddleware
 
 
@@ -40,7 +40,7 @@ async def handle_create_events_from_gcal_link(
     for item in gcal_events["items"]:
         try:
             events_to_publish.append(
-                Event.from_gcal_event(item, communication_ids=[str(message.chat.id)])
+                Teavent.from_gcal_event(item, communication_ids=[str(message.chat.id)])
             )
         except EventDescriptionParsingError as e:
             event_link = item["htmlLink"]
