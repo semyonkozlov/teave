@@ -25,20 +25,20 @@ async def main():
         await channel.set_qos(prefetch_count=0)
 
         events = await channel.declare_queue("events", durable=True)
-        user_updates = await channel.declare_queue("user_updates", durable=True)
-        em_updates = await channel.declare_queue("em_updates", durable=True)
+        incoming_updates = await channel.declare_queue("incoming_updates", durable=True)
+        outgoing_updates = await channel.declare_queue("outgoing_updates", durable=True)
 
         # TODO: use pydantic_settings to configure
         bot = aiogram.Bot(token=os.getenv("TOKEN"))
         dp = aiogram.Dispatcher()
 
-        async def on_em_update(message: aio_pika.abc.AbstractIncomingMessage):
+        async def on_outgoing_update(message: aio_pika.abc.AbstractIncomingMessage):
             update = FlowUpdate.from_message(message)
             for chat_id in update.communication_ids:
                 await bot.send_message(chat_id=chat_id, text=update.type)
 
         logging.info("Register consumers")
-        await em_updates.consume(on_em_update, no_ack=True)
+        await outgoing_updates.consume(on_outgoing_update, no_ack=True)
 
         logging.info("Create RPC-client")
         rpc = await aio_pika.patterns.RPC.create(channel)
@@ -51,7 +51,7 @@ async def main():
 
         logging.info("Init middlewares")
         dp.message.middleware(QueueMiddleware(events))
-        dp.message.middleware(QueueMiddleware(user_updates))
+        dp.message.middleware(QueueMiddleware(incoming_updates))
         dp.message.middleware(RpcMiddleware(rpc.proxy.list_events))
         dp.message.middleware(CalendarMiddleware(aiogoogle, calendar_api))
 

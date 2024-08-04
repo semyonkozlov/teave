@@ -1,32 +1,31 @@
 from datetime import datetime
 
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from common.errors import EventDescriptionParsingError
 from common.pika_pydantic import TeaveModel
 
 
+DEFAULT_MAX_PARTICIPANTS = 100
+
+
 class EventConfig(BaseModel):
-    max: int | None = None
-    min: int | None = None
+    max: int = DEFAULT_MAX_PARTICIPANTS
+    min: int = 0
     poll_at: str | None = None
 
     @staticmethod
-    def from_description(description: str) -> "EventConfig | None":
+    def from_description(description: str) -> "EventConfig":
         try:
             parsed = yaml.load(description, Loader=yaml.BaseLoader)
         except yaml.YAMLError as e:
             raise EventDescriptionParsingError from e
 
-        if not isinstance(parsed, dict):
-            return None
+        if isinstance(parsed, dict) and (config := parsed.get("config")):
+            return EventConfig(**config)
 
-        config: dict = parsed.get("config")
-        if not config:
-            return None
-
-        return EventConfig(**config)
+        return EventConfig()
 
 
 class Recurrence(BaseModel):
@@ -50,7 +49,7 @@ class Event(TeaveModel):
     participant_ids: list[str] = []
     state: str = "created"
 
-    config: EventConfig | None = None
+    config: EventConfig = Field(default=EventConfig())
 
     communication_ids: list[str]
 
@@ -78,8 +77,8 @@ class Event(TeaveModel):
         return len(self.participant_ids)
 
     @property
-    def packed(self) -> bool:
-        return self.num_participants >= self.config.max
+    def ready(self) -> bool:
+        return self.num_participants >= self.config.min
 
 
 class FlowUpdate(TeaveModel):

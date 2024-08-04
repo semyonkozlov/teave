@@ -3,6 +3,7 @@ import logging
 
 import aio_pika
 from aio_pika.patterns import RPC
+from attr import define
 from statemachine import State, StateMachine
 
 from common.pika_pydantic import ModelMessage
@@ -16,37 +17,56 @@ class InconsistencyError(RuntimeError):
 class EventFlow(StateMachine):
     # states
     created = State(initial=True)
-    partially_confirmed = State()
-    confirmed = State()
+    not_enough_participants = State()
+    enough_participants = State()
     started = State()
     finished = State(final=True)
 
     # transitions
-    confirm = (
-        created.to(confirmed, cond="everyone_confirmed")
-        | partially_confirmed.to(confirmed, cond="everyone_confirmed")
-        | created.to(partially_confirmed)
-    )
-    start = confirmed.to(started)
-    got_reject = confirmed.to(partially_confirmed)
+    # fmt: off
+    confirm = created.to(enough_participants, cond="ready") | not_enough_participants.to(enough_participants, cond="ready") | created.to(not_enough_participants)
+    start = enough_participants.to(started)
+    reject = enough_participants.to(not_enough_participants, unless="ready")
     finish = started.to(finished)
-
-    def __init__(self, event: Event):
-        self._event = event
-
-        super().__init__()
-
-    def everyone_confirmed(self) -> bool:
-        return self._event.confirmed
+    # fmt: on
 
     @property
     def event(self) -> Event:
-        return self._event
+        return self.model
 
 
+@define
+class QueueView:
+
+    _events_queue: aio_pika.abc.AbstractQueue
+    _outgoing_updates_queue: aio_pika.abc.AbstractQueue
+
+    _channel: aio_pika.abc.AbstractChannel
+
+    async def publish_update(self, outgoing_update: FlowUpdate):
+        await self._channel.default_exchange.publish(
+            ModelMessage(outgoing_update),
+            routing_key=self._outgoing_updates_queue.name,
+        )
+
+    async def publish_event(self, event: Event):
+        await self._channel.default_exchange.publish(
+            ModelMessage(event),
+            routing_key=self._events_queue.name,
+        )
+
+    async def ack_event(self, event: Event, new_delivery_tag: str):
+        "Drop old message from queue and update delivery tag"
+
+        await event.ack_delivery(self._channel)
+        event._delivery_tag = new_delivery_tag
+
+
+@define
 class EventManager:
-    def __init__(self):
-        self._events_sm: dict[str, EventFlow] = {}
+
+    _view: QueueView  # TODO subscribe view to events_sm
+    _events_sm: dict[str, EventFlow] = {}
 
     def get_event(self, event_id: str) -> Event | None:
         try:
@@ -57,24 +77,32 @@ class EventManager:
     def list_events(self) -> list[Event]:
         return list(sm.event for sm in self._events_sm.values())
 
-    def manage(self, event: Event):
+    async def _setup_timers(self, event: Event): ...
+
+    async def process_event(self, event: Event):
         if event.id not in self._events_sm:
             logging.info(f"Got new event {event}")
-            self._events_sm[event.id] = EventFlow(event)
+            self._events_sm[event.id] = EventFlow(model=event)
+            await self._setup_timers(event)
             return
 
         logging.info(f"Got known event {event}")
         sm = self._events_sm[event.id]
 
-        current_state = sm.current_state.id
-        if event.state != sm.current_state.id:
+        self._check_consistency(event, sm.event)
+        await self._view.ack_event(sm.event, new_delivery_tag=event._delivery_tag)
+
+    def _check_consistency(self, new_event: Event, managed_event: Event):
+        assert new_event.id == managed_event.id
+
+        if new_event.state != managed_event.state:
             raise InconsistencyError(
-                f"Event {event.id} has state {current_state}, but {event.state} received"
+                f"Event {managed_event.id} has state '{managed_event.state}', but '{new_event.state}' received"
             )
 
-    def on_update(self, update: FlowUpdate) -> Event:
-        # TODO
-        return self._events_sm[update.event_id].send(update.type)
+    async def process_update(self, update: FlowUpdate):
+        updated_event = self._events_sm[update.event_id].send(update.type)
+        await self._view.publish_event(updated_event)
 
 
 async def main():
@@ -85,51 +113,31 @@ async def main():
         channel = await connection.channel()
 
         events = await channel.declare_queue("events", durable=True)
-        em_updates = await channel.declare_queue("em_updates", durable=True)
-        user_updates = await channel.declare_queue("user_updates", durable=True)
+        incoming_updates = await channel.declare_queue("incoming_updates", durable=True)
+        outgoing_updates = await channel.declare_queue("outgoing_updates", durable=True)
         await channel.set_qos(prefetch_size=0)
 
-        # TODO on state change callback
-        event_manager = EventManager()
+        qview = QueueView(events, outgoing_updates, channel)
+        event_manager = EventManager(view=qview)
 
-        async def on_event_message(message: aio_pika.abc.AbstractIncomingMessage):
-            event = Event.from_message(message)
-
-            if managed_event := event_manager.get_event(event.id):
-                # we are already managing this event, drop old message and update tag
-                await managed_event.ack_delivery(channel)
-                managed_event._delivery_tag = event._delivery_tag
-            else:
-                # TODO: move to state change callback
-                update = FlowUpdate(
-                    communication_ids=event.communication_ids, type="created"
-                )
-                await channel.default_exchange.publish(
-                    ModelMessage(update),
-                    routing_key=em_updates.name,
-                )
-
-            event_manager.manage(event)
-
-        async def on_update_message(message: aio_pika.abc.AbstractIncomingMessage):
-            update = FlowUpdate.from_message(message)
-
-            event = event_manager.on_update(update)
-            await channel.default_exchange.publish(
-                ModelMessage(event),
-                routing_key=events.name,
-            )
+        logging.info("Register RPC")
 
         async def list_events() -> list[Event]:
             return event_manager.list_events()
 
-        logging.info("Register RPC")
         rpc = await RPC.create(channel)
         await rpc.register("list_events", list_events, auto_delete=True)
 
         logging.info("Register consumers")
+
+        async def on_event_message(message: aio_pika.abc.AbstractIncomingMessage):
+            await event_manager.process_event(Event.from_message(message))
+
+        async def on_update_message(message: aio_pika.abc.AbstractIncomingMessage):
+            await event_manager.process_update(FlowUpdate.from_message(message))
+
         await events.consume(on_event_message)
-        await user_updates.consume(on_update_message)
+        await incoming_updates.consume(on_update_message)
 
         await asyncio.Future()
 
