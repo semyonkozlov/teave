@@ -37,7 +37,6 @@ class TeaventFlow(StateMachine):
 
 @define(hash=True)
 class QueueView:
-
     _teavents_queue: aio_pika.abc.AbstractQueue
     _outgoing_updates_queue: aio_pika.abc.AbstractQueue
 
@@ -67,8 +66,7 @@ class QueueView:
 
 @define
 class TeaventManager:
-
-    _view: QueueView  # TODO subscribe view to events_sm
+    _view: QueueView
     _teavents_sm: dict[str, TeaventFlow] = {}
 
     def get_event(self, event_id: str) -> Teavent | None:
@@ -82,31 +80,31 @@ class TeaventManager:
 
     async def _setup_timers(self, teavent: Teavent): ...
 
-    async def process_event(self, event: Teavent):
-        if event.id not in self._teavents_sm:
-            logging.info(f"Got new event {event}")
-            self._teavents_sm[event.id] = TeaventFlow(
-                model=event, listeners=[self._view]
+    async def process_teavent(self, teavent: Teavent):
+        if teavent.id not in self._teavents_sm:
+            logging.info(f"Got new event {teavent}")
+            self._teavents_sm[teavent.id] = TeaventFlow(
+                model=teavent, listeners=[self._view]
             )
-            await self._setup_timers(event)
+            await self._setup_timers(teavent)
             return
 
-        logging.info(f"Got known event {event}")
-        sm = self._teavents_sm[event.id]
+        logging.info(f"Got known event {teavent}")
+        sm = self._teavents_sm[teavent.id]
 
-        self._check_consistency(event, sm.teavent)
-        await self._view.ack_teavent(sm.teavent, new_delivery_tag=event._delivery_tag)
+        self._check_consistency(teavent, sm.teavent)
+        await self._view.ack_teavent(sm.teavent, new_delivery_tag=teavent._delivery_tag)
 
-    def _check_consistency(self, new_event: Teavent, managed_event: Teavent):
-        assert new_event.id == managed_event.id
+    def _check_consistency(self, new_teavent: Teavent, managed_teavent: Teavent):
+        assert new_teavent.id == managed_teavent.id
 
-        if new_event.state != managed_event.state:
+        if new_teavent.state != managed_teavent.state:
             raise InconsistencyError(
-                f"Event {managed_event.id} has state '{managed_event.state}', but '{new_event.state}' received"
+                f"Event {managed_teavent.id} has state '{managed_teavent.state}', but '{new_teavent.state}' received"
             )
 
     async def process_update(self, update: FlowUpdate):
-        await self._teavents_sm[update.event_id].send(update.type)
+        await self._teavents_sm[update.teavent_id].send(update.type)
 
 
 async def main():
@@ -135,7 +133,7 @@ async def main():
         logging.info("Register consumers")
 
         async def on_event_message(message: aio_pika.abc.AbstractIncomingMessage):
-            await teavent_manager.process_event(Teavent.from_message(message))
+            await teavent_manager.process_teavent(Teavent.from_message(message))
 
         async def on_update_message(message: aio_pika.abc.AbstractIncomingMessage):
             await teavent_manager.process_update(FlowUpdate.from_message(message))

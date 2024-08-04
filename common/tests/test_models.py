@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from common.models import EventConfig, Teavent
+from common.models import TeaventConfig, Teavent
 
 
 @pytest.fixture
@@ -26,7 +26,7 @@ def description(testdatadir):
 
 
 def test_config_from_description(description):
-    config = EventConfig.from_description(description)
+    config = TeaventConfig.from_description(description)
     assert config is not None
 
     assert config.min == 2
