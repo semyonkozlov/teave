@@ -25,7 +25,7 @@ class TeaventFlow(StateMachine):
     # transitions
     # fmt: off
     confirm = created.to(enough_participants, cond="ready") | not_enough_participants.to(enough_participants, cond="ready") | created.to(not_enough_participants)
-    start = enough_participants.to(started)
+    start_ = enough_participants.to(started)
     reject = enough_participants.to(not_enough_participants, unless="ready")
     finish = started.to(finished)
     # fmt: on
@@ -135,11 +135,11 @@ async def main():
         async def on_event_message(message: aio_pika.abc.AbstractIncomingMessage):
             await teavent_manager.process_teavent(Teavent.from_message(message))
 
-        async def on_update_message(message: aio_pika.abc.AbstractIncomingMessage):
+        async def on_incoming_update(message: aio_pika.abc.AbstractIncomingMessage):
             await teavent_manager.process_update(FlowUpdate.from_message(message))
 
         await events.consume(on_event_message)
-        await incoming_updates.consume(on_update_message)
+        await incoming_updates.consume(on_incoming_update, no_ack=True)
 
         await asyncio.Future()
 

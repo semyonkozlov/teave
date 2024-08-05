@@ -90,7 +90,7 @@ class FlowUpdate(TeaveModel):
     data: dict = {}
 
     @staticmethod
-    def for_teavent(self, teavent: Teavent, type: str, **data) -> "FlowUpdate":
+    def for_teavent(teavent: Teavent, type: str, **data) -> "FlowUpdate":
         "Create FlowUpdate for `teavent`"
 
         return FlowUpdate(

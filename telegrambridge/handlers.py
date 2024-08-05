@@ -6,9 +6,10 @@ import re
 import aiogram
 from aiogram import F
 from aiogram.filters import Command
+from aiogram.filters.command import CommandObject
 
 from common.errors import EventDescriptionParsingError
-from common.models import Teavent
+from common.models import FlowUpdate, Teavent
 from telegrambridge.middlewares import CalendarMiddleware, QueueMiddleware
 
 
@@ -53,6 +54,28 @@ async def handle_create_events_from_gcal_link(
     num = len(events_to_publish)
     links = "\n".join(e.link for e in events_to_publish)
     await message.reply(text=f"Got {num} events:\n {links}")
+
+
+def from_eid(eid: str) -> str:
+    decoded = base64.b64decode(eid + "==").decode()
+    event_data, calendar_data = decoded.split(" ")
+    event_id, time_data = event_data.split("_")
+    return event_id
+
+
+@router.message(Command(commands=["confirm", "reject", "submit", "start_"]))
+async def process_command(
+    message: aiogram.types.Message,
+    command: CommandObject,
+    incoming_updates: QueueMiddleware,
+):
+    await incoming_updates.publish(
+        FlowUpdate(
+            teavent_id=from_eid(command.args),
+            communication_ids=[str(message.chat.id)],
+            type=command.command,
+        )
+    )
 
 
 @router.message()
