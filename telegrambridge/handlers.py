@@ -50,10 +50,10 @@ async def handle_create_teavents_from_gcal_link(
     await message.reply(text=f"Got {num} teavents:\n {links}")
 
 
+# TODO unused
 def from_eid(eid: str) -> str:
     decoded = base64.b64decode(eid + "==").decode()
-    event_data, calendar_data = decoded.split(" ")
-    event_id, time_data = event_data.split("_")
+    event_id, calendar_id = decoded.split(" ")
     return event_id
 
 
@@ -65,7 +65,7 @@ async def process_command(
 ):
     await incoming_updates.publish(
         FlowUpdate(
-            teavent_id=from_eid(command.args),
+            teavent_id=command.args,
             communication_ids=[str(message.chat.id)],
             type=command.command,
         )
@@ -76,7 +76,8 @@ async def process_command(
 async def process_command_teavents(
     message: aiogram.types.Message, list_teavents: Awaitable
 ):
-    await message.reply(text=repr(await list_teavents()))
+    text = "\n".join(f"{t.id} state={t.state}" for t in await list_teavents())
+    await message.reply(text=text)
 
 
 @router.message()

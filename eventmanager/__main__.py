@@ -36,13 +36,14 @@ class TeaventFlow(StateMachine):
 
 
 @define(hash=True)
-class QueueView:
+class Protocol:
     _teavents_queue: aio_pika.abc.AbstractQueue
     _outgoing_updates_queue: aio_pika.abc.AbstractQueue
 
     _channel: aio_pika.abc.AbstractChannel
 
     async def on_enter_state(self, state: State, model: Teavent):
+        await self.publish_teavent(model)
         await self.publish_update(FlowUpdate.for_teavent(model, type=state.name))
 
     async def publish_update(self, outgoing_update: FlowUpdate):
@@ -66,7 +67,7 @@ class QueueView:
 
 @define
 class TeaventManager:
-    _view: QueueView
+    _protocol: Protocol
     _teavents_sm: dict[str, TeaventFlow] = {}
 
     def list_teavents(self) -> list[Teavent]:
@@ -78,7 +79,7 @@ class TeaventManager:
         if teavent.id not in self._teavents_sm:
             logging.info(f"Got new event {teavent}")
             self._teavents_sm[teavent.id] = TeaventFlow(
-                model=teavent, listeners=[self._view]
+                model=teavent, listeners=[self._protocol]
             )
             await self._setup_timers(teavent)
             return
@@ -87,7 +88,9 @@ class TeaventManager:
         sm = self._teavents_sm[teavent.id]
 
         self._check_consistency(teavent, sm.teavent)
-        await self._view.ack_teavent(sm.teavent, new_delivery_tag=teavent._delivery_tag)
+        await self._protocol.ack_teavent(
+            sm.teavent, new_delivery_tag=teavent._delivery_tag
+        )
 
     def _check_consistency(self, new_teavent: Teavent, managed_teavent: Teavent):
         assert new_teavent.id == managed_teavent.id
@@ -113,8 +116,8 @@ async def main():
         outgoing_updates = await channel.declare_queue("outgoing_updates", durable=True)
         await channel.set_qos(prefetch_size=0)
 
-        qview = QueueView(teavents, outgoing_updates, channel)
-        teavent_manager = TeaventManager(view=qview)
+        protocol = Protocol(teavents, outgoing_updates, channel)
+        teavent_manager = TeaventManager(protocol=protocol)
 
         logging.info("Register RPC")
 
