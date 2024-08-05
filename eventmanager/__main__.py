@@ -69,13 +69,7 @@ class TeaventManager:
     _view: QueueView
     _teavents_sm: dict[str, TeaventFlow] = {}
 
-    def get_event(self, event_id: str) -> Teavent | None:
-        try:
-            return self._teavents_sm[event_id].teavent
-        except KeyError:
-            return None
-
-    def list_events(self) -> list[Teavent]:
+    def list_teavents(self) -> list[Teavent]:
         return list(sm.teavent for sm in self._teavents_sm.values())
 
     async def _setup_timers(self, teavent: Teavent): ...
@@ -114,31 +108,31 @@ async def main():
     async with connection:
         channel = await connection.channel()
 
-        events = await channel.declare_queue("events", durable=True)
+        teavents = await channel.declare_queue("teavents", durable=True)
         incoming_updates = await channel.declare_queue("incoming_updates", durable=True)
         outgoing_updates = await channel.declare_queue("outgoing_updates", durable=True)
         await channel.set_qos(prefetch_size=0)
 
-        qview = QueueView(events, outgoing_updates, channel)
+        qview = QueueView(teavents, outgoing_updates, channel)
         teavent_manager = TeaventManager(view=qview)
 
         logging.info("Register RPC")
 
-        async def list_events() -> list[Teavent]:
-            return teavent_manager.list_events()
+        async def list_teavents() -> list[Teavent]:
+            return teavent_manager.list_teavents()
 
         rpc = await RPC.create(channel)
-        await rpc.register("list_events", list_events, auto_delete=True)
+        await rpc.register("list_teavents", list_teavents, auto_delete=True)
 
         logging.info("Register consumers")
 
-        async def on_event_message(message: aio_pika.abc.AbstractIncomingMessage):
+        async def on_teavent(message: aio_pika.abc.AbstractIncomingMessage):
             await teavent_manager.process_teavent(Teavent.from_message(message))
 
         async def on_incoming_update(message: aio_pika.abc.AbstractIncomingMessage):
             await teavent_manager.process_update(FlowUpdate.from_message(message))
 
-        await events.consume(on_event_message)
+        await teavents.consume(on_teavent)
         await incoming_updates.consume(on_incoming_update, no_ack=True)
 
         await asyncio.Future()

@@ -24,7 +24,7 @@ async def main():
         channel = await connection.channel()
         await channel.set_qos(prefetch_count=0)
 
-        events = await channel.declare_queue("events", durable=True)
+        teavents = await channel.declare_queue("teavents", durable=True)
         incoming_updates = await channel.declare_queue("incoming_updates", durable=True)
         outgoing_updates = await channel.declare_queue("outgoing_updates", durable=True)
 
@@ -50,9 +50,9 @@ async def main():
         dp.include_router(handlers.router)
 
         logging.info("Init middlewares")
-        dp.message.middleware(QueueMiddleware(events))
+        dp.message.middleware(QueueMiddleware(teavents))
         dp.message.middleware(QueueMiddleware(incoming_updates))
-        dp.message.middleware(RpcMiddleware(rpc.proxy.list_events))
+        dp.message.middleware(RpcMiddleware(rpc.proxy.list_teavents))
         dp.message.middleware(CalendarMiddleware(aiogoogle, calendar_api))
 
         await bot.delete_webhook(drop_pending_updates=True)

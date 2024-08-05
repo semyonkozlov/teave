@@ -16,20 +16,14 @@ from telegrambridge.middlewares import CalendarMiddleware, QueueMiddleware
 log = logging.getLogger(__name__)
 router = aiogram.Router()
 
-
-@router.message(Command(commands=["events"]))
-async def handle_list_events(message: aiogram.types.Message, list_events: Awaitable):
-    await message.reply(str(await list_events()))
+gcal_link = re.compile(r"https://calendar\.google\.com/calendar/u/0\?cid=(.*)")
 
 
-pattern = re.compile(r"https://calendar\.google\.com/calendar/u/0\?cid=(.*)")
-
-
-@router.message(F.text.regexp(pattern).as_("match"))
-async def handle_create_events_from_gcal_link(
+@router.message(F.text.regexp(gcal_link).as_("match"))
+async def handle_create_teavents_from_gcal_link(
     message: aiogram.types.Message,
     calendar: CalendarMiddleware,
-    events: QueueMiddleware,
+    teavents: QueueMiddleware,
     match: re.Match[str],
 ):
     calendar_id = base64.b64decode(match.group(1)).decode()
@@ -37,10 +31,10 @@ async def handle_create_events_from_gcal_link(
     # TODO avoid double managing the same calendar, but watch new events
 
     gcal_events = await calendar.list_events(calendar_id)
-    events_to_publish = []
+    teavents_to_publish = []
     for item in gcal_events["items"]:
         try:
-            events_to_publish.append(
+            teavents_to_publish.append(
                 Teavent.from_gcal_event(item, communication_ids=[str(message.chat.id)])
             )
         except EventDescriptionParsingError as e:
@@ -48,12 +42,12 @@ async def handle_create_events_from_gcal_link(
             await message.reply(text=f"Event {event_link} has bad description: {e}")
             raise
 
-    for event in events_to_publish:
-        await events.publish(event)
+    for teavent in teavents_to_publish:
+        await teavents.publish(teavent)
 
-    num = len(events_to_publish)
-    links = "\n".join(e.link for e in events_to_publish)
-    await message.reply(text=f"Got {num} events:\n {links}")
+    num = len(teavents_to_publish)
+    links = "\n".join(e.link for e in teavents_to_publish)
+    await message.reply(text=f"Got {num} teavents:\n {links}")
 
 
 def from_eid(eid: str) -> str:
@@ -76,6 +70,13 @@ async def process_command(
             type=command.command,
         )
     )
+
+
+@router.message(Command("teavents"))
+async def process_command_teavents(
+    message: aiogram.types.Message, list_teavents: Awaitable
+):
+    await message.reply(text=repr(await list_teavents()))
 
 
 @router.message()
