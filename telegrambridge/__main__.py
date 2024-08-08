@@ -25,7 +25,6 @@ async def main():
         await channel.set_qos(prefetch_count=0)
 
         teavents = await channel.declare_queue("teavents", durable=True)
-        incoming_updates = await channel.declare_queue("incoming_updates", durable=True)
         outgoing_updates = await channel.declare_queue("outgoing_updates", durable=True)
 
         # TODO: use pydantic_settings to configure
@@ -51,8 +50,8 @@ async def main():
 
         logging.info("Init middlewares")
         dp.message.middleware(QueueMiddleware(teavents))
-        dp.message.middleware(QueueMiddleware(incoming_updates))
         dp.message.middleware(RpcMiddleware(rpc.proxy.list_teavents))
+        dp.message.middleware(RpcMiddleware(rpc.proxy.user_action))
         dp.message.middleware(CalendarMiddleware(aiogoogle, calendar_api))
 
         await bot.delete_webhook(drop_pending_updates=True)

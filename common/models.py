@@ -82,9 +82,17 @@ class Teavent(TeaveModel):
     def ready(self) -> bool:
         return self.num_participants >= self.config.min
 
+    @property
+    def has_slots(self) -> bool:
+        return self.num_participants < self.config.max
+
+    def confirmed_by(self, user_id: str) -> bool:
+        return user_id in self.participant_ids
+
 
 class FlowUpdate(TeaveModel):
     teavent_id: str
+    user_id: str = ""
     communication_ids: list[str] = []
     type: str
     data: dict = {}

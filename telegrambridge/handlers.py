@@ -9,8 +9,11 @@ from aiogram.filters import Command
 from aiogram.filters.command import CommandObject
 
 from common.errors import EventDescriptionParsingError
-from common.models import FlowUpdate, Teavent
-from telegrambridge.middlewares import CalendarMiddleware, QueueMiddleware
+from common.models import Teavent
+from telegrambridge.middlewares import (
+    CalendarMiddleware,
+    QueueMiddleware,
+)
 
 
 log = logging.getLogger(__name__)
@@ -57,26 +60,33 @@ def from_eid(eid: str) -> str:
     return event_id
 
 
-@router.message(Command(commands=["confirm", "reject", "submit", "start_"]))
+@router.message(Command(commands=["confirm", "reject"]))
 async def process_command(
     message: aiogram.types.Message,
     command: CommandObject,
-    incoming_updates: QueueMiddleware,
+    user_action: Awaitable,
 ):
-    await incoming_updates.publish(
-        FlowUpdate(
-            teavent_id=command.args,
-            communication_ids=[str(message.chat.id)],
+    try:
+        reply = await user_action(
             type=command.command,
+            user_id=str(message.from_user.id),
+            teavent_id=command.args,
         )
-    )
+    except Exception as e:
+        await message.reply(text=str(e))
+        return
+
+    await message.reply(text=str(reply))
 
 
 @router.message(Command("teavents"))
 async def process_command_teavents(
     message: aiogram.types.Message, list_teavents: Awaitable
 ):
-    text = "\n".join(f"{t.id} state={t.state}" for t in await list_teavents())
+    text = "\n".join(
+        f"{t.id} state={t.state} participants={t.participant_ids}"
+        for t in await list_teavents()
+    )
     await message.reply(text=text)
 
 

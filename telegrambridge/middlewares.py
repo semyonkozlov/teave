@@ -1,6 +1,7 @@
 from collections.abc import Awaitable
 import json
 
+from attr import define
 import pydantic
 import aiogram
 import aio_pika
@@ -10,9 +11,9 @@ from aiogoogle.auth.creds import ServiceAccountCreds
 from common.pika_pydantic import ModelMessage
 
 
+@define
 class QueueMiddleware(aiogram.BaseMiddleware):
-    def __init__(self, queue: aio_pika.abc.AbstractQueue):
-        self._queue = queue
+    _queue: aio_pika.abc.AbstractQueue
 
     async def __call__(self, handler, event: aiogram.types.Message, data: dict):
         data[self._queue.name] = self
@@ -25,9 +26,9 @@ class QueueMiddleware(aiogram.BaseMiddleware):
         )
 
 
+@define
 class RpcMiddleware(aiogram.BaseMiddleware):
-    def __init__(self, rpc_method: Awaitable):
-        self._method = rpc_method
+    _method: Awaitable
 
     async def __call__(self, handler, event: aiogram.types.Message, data: dict):
         data[self._method.name] = self._method
@@ -47,10 +48,10 @@ def init_aiogoogle() -> Aiogoogle:
     return Aiogoogle(service_account_creds=service_account_creds)
 
 
+@define
 class CalendarMiddleware(aiogram.BaseMiddleware):
-    def __init__(self, aiogoogle: Aiogoogle, calendar_api: GoogleAPI):
-        self._aiogoogle = aiogoogle
-        self._calendar_api = calendar_api
+    _aiogoogle: Aiogoogle
+    _calendar_api: GoogleAPI
 
     async def __call__(self, handler, event: aiogram.types.Message, data: dict):
         data["calendar"] = self

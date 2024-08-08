@@ -11,7 +11,7 @@ from common.models import Teavent, FlowUpdate
 
 
 class InconsistencyError(RuntimeError):
-    """Inconsistency data found"""
+    "Inconsistent data found"
 
 
 class TeaventFlow(StateMachine):
@@ -24,7 +24,12 @@ class TeaventFlow(StateMachine):
 
     # transitions
     # fmt: off
-    confirm = created.to(enough_participants, cond="ready") | not_enough_participants.to(enough_participants, cond="ready") | created.to(not_enough_participants)
+    confirm = (
+        created.to(enough_participants, cond="ready") | 
+        enough_participants.to(enough_participants, cond="has_slots") |
+        not_enough_participants.to(enough_participants, cond="ready") | 
+        created.to(not_enough_participants)
+    )
     start_ = enough_participants.to(started)
     reject = enough_participants.to(not_enough_participants, unless="ready")
     finish = started.to(finished)
@@ -33,6 +38,22 @@ class TeaventFlow(StateMachine):
     @property
     def teavent(self) -> Teavent:
         return self.model
+
+    def on_confirm(self, user_id: str, model: Teavent):
+        model.participant_ids.append(user_id)
+
+    def on_reject(self, user_id: str, model: Teavent):
+        model.participant_ids.remove(user_id)
+
+    @confirm.validators
+    def not_confirmed_before(self, user_id: str, model: Teavent):
+        if model.confirmed_by(user_id):
+            raise Exception()
+
+    @reject.validators
+    def confirmed_before(self, user_id: str, model: Teavent):
+        if model.confirmed_by(user_id):
+            raise Exception()
 
 
 @define(hash=True)
@@ -75,22 +96,21 @@ class TeaventManager:
 
     async def _setup_timers(self, teavent: Teavent): ...
 
-    async def process_teavent(self, teavent: Teavent):
+    async def handle_teavent(self, teavent: Teavent):
         if teavent.id not in self._teavents_sm:
             logging.info(f"Got new event {teavent}")
             self._teavents_sm[teavent.id] = TeaventFlow(
                 model=teavent, listeners=[self._protocol]
             )
             await self._setup_timers(teavent)
-            return
+        else:
+            logging.info(f"Got known event {teavent}")
+            sm = self._teavents_sm[teavent.id]
 
-        logging.info(f"Got known event {teavent}")
-        sm = self._teavents_sm[teavent.id]
-
-        self._check_consistency(teavent, sm.teavent)
-        await self._protocol.ack_teavent(
-            sm.teavent, new_delivery_tag=teavent._delivery_tag
-        )
+            self._check_consistency(teavent, sm.teavent)
+            await self._protocol.ack_teavent(
+                sm.teavent, new_delivery_tag=teavent._delivery_tag
+            )
 
     def _check_consistency(self, new_teavent: Teavent, managed_teavent: Teavent):
         assert new_teavent.id == managed_teavent.id
@@ -100,8 +120,8 @@ class TeaventManager:
                 f"Event {managed_teavent.id} has state '{managed_teavent.state}', but '{new_teavent.state}' received"
             )
 
-    async def process_update(self, update: FlowUpdate):
-        await self._teavents_sm[update.teavent_id].send(update.type)
+    async def handle_user_action(self, type: str, user_id: str, teavent_id: str):
+        return await self._teavents_sm[teavent_id].send(type, user_id=user_id)
 
 
 async def main():
@@ -112,7 +132,6 @@ async def main():
         channel = await connection.channel()
 
         teavents = await channel.declare_queue("teavents", durable=True)
-        incoming_updates = await channel.declare_queue("incoming_updates", durable=True)
         outgoing_updates = await channel.declare_queue("outgoing_updates", durable=True)
         await channel.set_qos(prefetch_size=0)
 
@@ -121,22 +140,25 @@ async def main():
 
         logging.info("Register RPC")
 
+        rpc = await RPC.create(channel)
+
         async def list_teavents() -> list[Teavent]:
             return teavent_manager.list_teavents()
 
-        rpc = await RPC.create(channel)
+        async def user_action(type: str, user_id: str, teavent_id: str):
+            return await teavent_manager.handle_user_action(
+                type=type, user_id=user_id, teavent_id=teavent_id
+            )
+
         await rpc.register("list_teavents", list_teavents, auto_delete=True)
+        await rpc.register("user_action", user_action, auto_delete=True)
 
         logging.info("Register consumers")
 
         async def on_teavent(message: aio_pika.abc.AbstractIncomingMessage):
-            await teavent_manager.process_teavent(Teavent.from_message(message))
-
-        async def on_incoming_update(message: aio_pika.abc.AbstractIncomingMessage):
-            await teavent_manager.process_update(FlowUpdate.from_message(message))
+            await teavent_manager.handle_teavent(Teavent.from_message(message))
 
         await teavents.consume(on_teavent)
-        await incoming_updates.consume(on_incoming_update, no_ack=True)
 
         await asyncio.Future()
 
