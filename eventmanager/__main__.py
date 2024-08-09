@@ -6,7 +6,6 @@ from aio_pika.patterns import RPC
 
 from attr import define
 from statemachine import State, StateMachine
-from statemachine.exceptions import StateMachineError
 
 from common.errors import TeaveError
 from common.pika_pydantic import ModelMessage
@@ -17,19 +16,25 @@ class InconsistencyError(TeaveError):
     "Inconsistent data found"
 
 
+class UnknownTeavent(TeaveError):
+    def __init__(self, teavent_id: str):
+        self.teavent_id = teavent_id
+        super().__init__(f"Unknown teavent id: {teavent_id}")
+
+
 class TeaventFlow(StateMachine):
     # states
     created = State(initial=True)
     poll_open = State()
     planned = State()
     started = State()
-    cancelled = State()
+    cancelled = State(final=True)
     finished = State(final=True)
 
     # transitions
     # fmt: off
     start_poll = created.to(poll_open)
-    confirm = poll_open.to(planned, cond="packed") | poll_open.to(poll_open)
+    confirm = poll_open.to(planned, cond="packed") | poll_open.to(poll_open) | planned.to(planned, unless="packed")
     reject = planned.to(planned) | poll_open.to(poll_open)
     stop_poll = poll_open.to(planned, cond="ready") | poll_open.to(cancelled, unless="ready")
     cancel = poll_open.to(cancelled) | planned.to(cancelled)
@@ -54,7 +59,7 @@ class TeaventFlow(StateMachine):
 
     @reject.validators
     def confirmed_before(self, user_id: str, model: Teavent):
-        if model.confirmed_by(user_id):
+        if not model.confirmed_by(user_id):
             raise RuntimeError("Not confirmed")
 
 
@@ -118,12 +123,19 @@ class TeaventManager:
         assert new_teavent.id == managed_teavent.id
 
         if new_teavent.state != managed_teavent.state:
+            # TODO handle it somewhere
             raise InconsistencyError(
                 f"Event {managed_teavent.id} has state '{managed_teavent.state}', but '{new_teavent.state}' received"
             )
 
+    def _teavent_sm(self, teavent_id: str) -> TeaventFlow:
+        try:
+            return self._teavents_sm[teavent_id]
+        except KeyError as e:
+            raise UnknownTeavent(teavent_id) from e
+
     async def handle_user_action(self, type: str, user_id: str, teavent_id: str):
-        return await self._teavents_sm[teavent_id].send(type, user_id=user_id)
+        return await self._teavent_sm(teavent_id).send(type, user_id=user_id)
 
 
 async def main():
@@ -153,8 +165,8 @@ async def main():
                 return await teavent_manager.handle_user_action(
                     type=type, user_id=user_id, teavent_id=teavent_id
                 )
-            except StateMachineError as e:
-                # StateMachineError might be not pickle-serializable, rethrow it as RuntimeError
+            except Exception as e:
+                # HACK: real exception might be not pickle-serializable, rethrow it as RuntimeError
                 raise RuntimeError(str(e)) from e
 
         await rpc.register("list_teavents", list_teavents, auto_delete=True)
