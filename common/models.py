@@ -1,4 +1,5 @@
 from datetime import datetime
+import warnings
 
 import yaml
 from pydantic import BaseModel, Field
@@ -83,8 +84,10 @@ class Teavent(TeaveModel):
         return self.num_participants >= self.config.min
 
     @property
-    def has_slots(self) -> bool:
-        return self.num_participants < self.config.max
+    def packed(self) -> bool:
+        if self.num_participants > self.config.max:
+            warnings.warn("num_participants > config.max")
+        return self.num_participants >= self.config.max
 
     def confirmed_by(self, user_id: str) -> bool:
         return user_id in self.participant_ids

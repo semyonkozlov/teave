@@ -3,35 +3,37 @@ import logging
 
 import aio_pika
 from aio_pika.patterns import RPC
+
 from attr import define
 from statemachine import State, StateMachine
+from statemachine.exceptions import StateMachineError
 
+from common.errors import TeaveError
 from common.pika_pydantic import ModelMessage
 from common.models import Teavent, FlowUpdate
 
 
-class InconsistencyError(RuntimeError):
+class InconsistencyError(TeaveError):
     "Inconsistent data found"
 
 
 class TeaventFlow(StateMachine):
     # states
     created = State(initial=True)
-    not_enough_participants = State()
-    enough_participants = State()
+    poll_open = State()
+    planned = State()
     started = State()
+    cancelled = State()
     finished = State(final=True)
 
     # transitions
     # fmt: off
-    confirm = (
-        created.to(enough_participants, cond="ready") | 
-        enough_participants.to(enough_participants, cond="has_slots") |
-        not_enough_participants.to(enough_participants, cond="ready") | 
-        created.to(not_enough_participants)
-    )
-    start_ = enough_participants.to(started)
-    reject = enough_participants.to(not_enough_participants, unless="ready")
+    start_poll = created.to(poll_open)
+    confirm = poll_open.to(planned, cond="packed") | poll_open.to(poll_open)
+    reject = planned.to(planned) | poll_open.to(poll_open)
+    stop_poll = poll_open.to(planned, cond="ready") | poll_open.to(cancelled, unless="ready")
+    cancel = poll_open.to(cancelled) | planned.to(cancelled)
+    start_ = planned.to(started)
     finish = started.to(finished)
     # fmt: on
 
@@ -48,12 +50,12 @@ class TeaventFlow(StateMachine):
     @confirm.validators
     def not_confirmed_before(self, user_id: str, model: Teavent):
         if model.confirmed_by(user_id):
-            raise Exception()
+            raise RuntimeError("Already confirmed")
 
     @reject.validators
     def confirmed_before(self, user_id: str, model: Teavent):
         if model.confirmed_by(user_id):
-            raise Exception()
+            raise RuntimeError("Not confirmed")
 
 
 @define(hash=True)
@@ -141,14 +143,19 @@ async def main():
         logging.info("Register RPC")
 
         rpc = await RPC.create(channel)
+        rpc.host_exceptions = True
 
         async def list_teavents() -> list[Teavent]:
             return teavent_manager.list_teavents()
 
         async def user_action(type: str, user_id: str, teavent_id: str):
-            return await teavent_manager.handle_user_action(
-                type=type, user_id=user_id, teavent_id=teavent_id
-            )
+            try:
+                return await teavent_manager.handle_user_action(
+                    type=type, user_id=user_id, teavent_id=teavent_id
+                )
+            except StateMachineError as e:
+                # StateMachineError might be not pickle-serializable, rethrow it as RuntimeError
+                raise RuntimeError(str(e)) from e
 
         await rpc.register("list_teavents", list_teavents, auto_delete=True)
         await rpc.register("user_action", user_action, auto_delete=True)

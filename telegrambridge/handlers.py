@@ -10,6 +10,7 @@ from aiogram.filters.command import CommandObject
 
 from common.errors import EventDescriptionParsingError
 from common.models import Teavent
+from telegrambridge.filters import IsAdmin
 from telegrambridge.middlewares import (
     CalendarMiddleware,
     QueueMiddleware,
@@ -61,7 +62,29 @@ def from_eid(eid: str) -> str:
 
 
 @router.message(Command(commands=["confirm", "reject"]))
-async def process_command(
+async def handle_user_actions(
+    message: aiogram.types.Message,
+    command: CommandObject,
+    user_action: Awaitable,
+):
+    try:
+        reply = await user_action(
+            type=command.command,
+            user_id=str(message.from_user.id),
+            teavent_id=command.args,
+        )
+    except Exception as e:
+        await message.reply(text=str(e))
+        return
+
+    await message.reply(text=str(reply))
+
+
+@router.message(
+    Command(commands=["poll_start", "poll_stop", "cancel", "start_", "finish"]),
+    IsAdmin(),
+)
+async def handle_admin_actions(
     message: aiogram.types.Message,
     command: CommandObject,
     user_action: Awaitable,
@@ -80,16 +103,16 @@ async def process_command(
 
 
 @router.message(Command("teavents"))
-async def process_command_teavents(
+async def handle_command_teavents(
     message: aiogram.types.Message, list_teavents: Awaitable
 ):
     text = "\n".join(
         f"{t.id} state={t.state} participants={t.participant_ids}"
         for t in await list_teavents()
     )
-    await message.reply(text=text)
+    await message.reply(text=(text or "no teavents"))
 
 
 @router.message()
-async def process_any_message(message: aiogram.types.Message):
+async def handle_any_message(message: aiogram.types.Message):
     await message.reply(text="TODO Default handler")
