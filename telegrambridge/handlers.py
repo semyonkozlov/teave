@@ -5,6 +5,7 @@ import re
 
 import aiogram
 from aiogram import F
+from aiogram.types import ReactionTypeEmoji
 from aiogram.filters import Command
 from aiogram.filters.command import CommandObject
 
@@ -61,8 +62,7 @@ def from_eid(eid: str) -> str:
     return event_id
 
 
-@router.message(Command(commands=["confirm", "reject"]))
-async def handle_user_actions(
+async def _handle_user_actions(
     message: aiogram.types.Message,
     command: CommandObject,
     user_action: Awaitable,
@@ -74,14 +74,28 @@ async def handle_user_actions(
             teavent_id=command.args,
         )
     except Exception as e:
+        await message.react([ReactionTypeEmoji(emoji="👨‍💻")])
         await message.reply(text=str(e))
         return
 
-    await message.reply(text=str(reply))
+    if reply is None:
+        await message.react([ReactionTypeEmoji(emoji="👍")])
+    else:
+        await message.reply(text=str(reply))
 
 
+@router.message(Command(commands=["confirm", "reject"]))
+async def handle_user_actions(
+    message: aiogram.types.Message,
+    command: CommandObject,
+    user_action: Awaitable,
+):
+    await _handle_user_actions(message, command, user_action)
+
+
+# TODO: use state machine events to enum commands, move TeaventFlow to common
 @router.message(
-    Command(commands=["poll_start", "poll_stop", "cancel", "start_", "finish"]),
+    Command(commands=["start_poll", "stop_poll", "cancel", "start_", "finish"]),
     IsAdmin(),
 )
 async def handle_admin_actions(
@@ -89,17 +103,7 @@ async def handle_admin_actions(
     command: CommandObject,
     user_action: Awaitable,
 ):
-    try:
-        reply = await user_action(
-            type=command.command,
-            user_id=str(message.from_user.id),
-            teavent_id=command.args,
-        )
-    except Exception as e:
-        await message.reply(text=str(e))
-        return
-
-    await message.reply(text=str(reply))
+    await _handle_user_actions(message, command, user_action)
 
 
 @router.message(Command("teavents"))
