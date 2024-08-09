@@ -1,5 +1,7 @@
 from collections.abc import Awaitable
 import json
+import datetime
+from datetime import datetime
 
 from attr import define
 import pydantic
@@ -61,5 +63,6 @@ class CalendarMiddleware(aiogram.BaseMiddleware):
         return await self._aiogoogle.as_service_account(
             self._calendar_api.events.list(
                 calendarId=calendar_id,
+                timeMin=datetime.utcnow().isoformat() + "Z",
             )
         )
