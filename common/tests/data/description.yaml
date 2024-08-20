@@ -1,6 +1,6 @@
 description: Тренировка по настольному теннису
 
 config:
-  poll_at: 11:00
+  start_poll_at: 11:00
   max: 8
   min: 2

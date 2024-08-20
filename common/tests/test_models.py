@@ -31,9 +31,9 @@ def test_config_from_description(description):
 
     assert config.min == 2
     assert config.max == 8
-    assert config.poll_at == "11:00"
+    assert config.start_poll_at == "11:00"
 
 
-def test_event_from_gcal_event(gcal_event_items):
+def test_teavent_from_gcal_event(gcal_event_items):
     for item in gcal_event_items:
         Teavent.from_gcal_event(item, communication_ids=[])

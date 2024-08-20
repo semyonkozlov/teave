@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import warnings
 
 import yaml
@@ -14,7 +14,8 @@ DEFAULT_MAX_PARTICIPANTS = 100
 class TeaventConfig(BaseModel):
     max: int = DEFAULT_MAX_PARTICIPANTS
     min: int = 0
-    poll_at: str | None = None
+    start_poll_at: str | None = None
+    stop_poll_at: str | None = None
 
     @staticmethod
     def from_description(description: str) -> "TeaventConfig":
@@ -91,6 +92,18 @@ class Teavent(TeaveModel):
 
     def confirmed_by(self, user_id: str) -> bool:
         return user_id in self.participant_ids
+
+    def start_poll_delay(self, now: datetime) -> timedelta:
+        raise NotImplementedError
+
+    def stop_poll_delay(self, now: datetime) -> timedelta:
+        raise NotImplementedError
+
+    def start_delay(self, now: datetime) -> timedelta:
+        return now - self.start
+
+    def end_delay(self, now: datetime) -> timedelta:
+        return now - self.end
 
 
 class FlowUpdate(TeaveModel):
