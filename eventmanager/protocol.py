@@ -29,11 +29,22 @@ class RmqProtocol:
             routing_key=self._teavents_queue.name,
         )
 
-    async def ack_teavent(self, teavent: Teavent, new_delivery_tag: str):
+    async def ack_teavent(self, teavent: Teavent, new_delivery_tag: str | None = None):
         "Drop old message from queue and update delivery tag"
 
         await teavent.ack_delivery(self._channel)
         teavent._delivery_tag = new_delivery_tag
+
+    async def fetch_teavents(self) -> list[Teavent]:
+        uniq_teavents = {}
+
+        while message := await self._teavents_queue.get(fail=False):
+            teavent = Teavent.from_message(message)
+            if teavent.id in uniq_teavents:
+                await self.ack_teavent(uniq_teavents[teavent.id])
+            uniq_teavents[teavent.id] = teavent
+
+        return list(uniq_teavents.values())
 
     # SM actions
 

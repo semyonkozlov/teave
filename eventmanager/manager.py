@@ -23,16 +23,14 @@ class TeaventManager:
     def list_teavents(self) -> list[Teavent]:
         return list(sm.teavent for sm in self._statemachines.values())
 
-    def handle_teavent(self, teavent: Teavent):
+    def handle_teavent(self, teavent: Teavent) -> Teavent | None:
         if teavent.id not in self._statemachines:
             log.info(f"Got new teavent {teavent}")
             self._manage(teavent)
             return
 
         log.info(f"Got known teavent {teavent.id}")
-        managed_teavent = self._teavent_sm(teavent.id).teavent
-        self._check_consistency(teavent, managed_teavent)
-        return managed_teavent
+        return self._teavent_sm(teavent.id).teavent
 
     def handle_user_action(self, type: str, user_id: str, teavent_id: str):
         return self._teavent_sm(teavent_id).send(type, user_id=user_id)
@@ -44,16 +42,7 @@ class TeaventManager:
             listeners=[*self._listeners, self, TransitionsLogger()],
         )
         self._statemachines[teavent.id] = sm
-        sm.init()
-
-    def _check_consistency(self, new_teavent: Teavent, managed_teavent: Teavent):
-        assert new_teavent.id == managed_teavent.id
-
-        if new_teavent.state != managed_teavent.state:
-            # TODO handle it somewhere
-            raise InconsistencyError(
-                f"Event {managed_teavent.id} has state '{managed_teavent.state}', but '{new_teavent.state}' received"
-            )
+        # sm.init()
 
     def _teavent_sm(self, teavent_id: str) -> TeaventFlow:
         try:

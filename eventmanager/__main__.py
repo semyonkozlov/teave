@@ -21,7 +21,11 @@ async def main():
         await channel.set_qos(prefetch_size=0)
 
         protocol = RmqProtocol(teavents, outgoing_updates, channel)
+
+        logging.info("Init manager")
         manager = TeaventManager(listeners=[protocol])
+        for teavent in await protocol.fetch_teavents():
+            manager.handle_teavent(teavent)
 
         logging.info("Register RPC")
 
