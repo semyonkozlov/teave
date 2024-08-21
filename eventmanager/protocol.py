@@ -15,7 +15,7 @@ class RmqProtocol:
 
     _channel: aio_pika.abc.AbstractChannel
 
-    _tasks: set[asyncio.Task] = {}
+    _tasks: set[asyncio.Task] = set()
 
     async def publish_update(self, outgoing_update: FlowUpdate):
         await self._channel.default_exchange.publish(

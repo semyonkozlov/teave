@@ -1,4 +1,5 @@
 import asyncio
+from collections.abc import Callable
 import logging
 from collections import defaultdict
 from datetime import datetime
@@ -8,6 +9,7 @@ from attr import define
 from common.models import Teavent
 from eventmanager.errors import InconsistencyError, UnknownTeavent
 from eventmanager.flow import TeaventFlow
+from eventmanager.transitions_logger import TransitionsLogger
 
 log = logging.getLogger("manager")
 
@@ -27,7 +29,7 @@ class TeaventManager:
             self._manage(teavent)
             return
 
-        log.info(f"Got known teavent {teavent}")
+        log.info(f"Got known teavent {teavent.id}")
         managed_teavent = self._teavent_sm(teavent.id).teavent
         self._check_consistency(teavent, managed_teavent)
         return managed_teavent
@@ -36,11 +38,13 @@ class TeaventManager:
         return self._teavent_sm(teavent_id).send(type, user_id=user_id)
 
     def _manage(self, teavent: Teavent):
-        self._statemachines[teavent.id] = TeaventFlow(
+        sm = TeaventFlow(
             model=teavent,
             state_field="state",
-            listeners=[*self._listeners, self],
+            listeners=[*self._listeners, self, TransitionsLogger()],
         )
+        self._statemachines[teavent.id] = sm
+        sm.init()
 
     def _check_consistency(self, new_teavent: Teavent, managed_teavent: Teavent):
         assert new_teavent.id == managed_teavent.id
@@ -57,15 +61,15 @@ class TeaventManager:
         except KeyError as e:
             raise UnknownTeavent(teavent_id) from e
 
-    def _schedule(self, task_name: str, teavent_id: str, delay_seconds: int):
-        log.info(
-            f"Schedule '{teavent_id}:{task_name}' to run in {delay_seconds} seconds"
-        )
+    def _schedule(self, event: Callable, teavent_id: str, delay_seconds: int):
+        task_name = f"{teavent_id}:{event.name}"
+
+        log.info(f"Schedule '{task_name}' to run in {delay_seconds} seconds")
 
         async def _task():
             log.info(f"Sleeping {delay_seconds} seconds...")
             await asyncio.sleep(delay_seconds)
-            self._teavent_sm(teavent_id).send(task_name)
+            event(self._teavent_sm(teavent_id))
 
         teavent_tasks = self._tasks[teavent_id]
 
@@ -73,8 +77,8 @@ class TeaventManager:
         teavent_tasks[task_name] = task
 
         def _on_task_done(t: asyncio.Task):
-            log.info(f"Task '{t.get_name()}' is done")
             teavent_tasks.pop(t.get_name())
+            log.info(f"Task '{task_name}' is done, result: {t.result()}")
 
         task.add_done_callback(_on_task_done)
 
@@ -83,7 +87,7 @@ class TeaventManager:
             task.cancel()
 
     def _delay_seconds(self, t: datetime) -> int:
-        return (t - datetime.now()).total_seconds()
+        return (t - datetime.now(tz=t.tzinfo)).total_seconds()
 
     # SM actions
 
@@ -91,23 +95,27 @@ class TeaventManager:
 
     def on_enter_created(self, model: Teavent):
         self._schedule(
-            "start_poll",
+            TeaventFlow.start_poll,
             model.id,
             delay_seconds=self._delay_seconds(model.start_poll_at),
         )
 
     def on_enter_poll_open(self, model: Teavent):
         self._schedule(
-            "stop_poll", model.id, delay_seconds=self._delay_seconds(model.stop_poll_at)
+            TeaventFlow.stop_poll,
+            model.id,
+            delay_seconds=self._delay_seconds(model.stop_poll_at),
         )
 
     def on_enter_planned(self, model: Teavent):
         self._schedule(
-            "start_", model.id, delay_seconds=self._delay_seconds(model.start)
+            TeaventFlow.start_, model.id, delay_seconds=self._delay_seconds(model.start)
         )
 
     def on_enter_started(self, model: Teavent):
-        self._schedule("finish", model.id, delay_seconds=self._delay_seconds(model.end))
+        self._schedule(
+            TeaventFlow.finish, model.id, delay_seconds=self._delay_seconds(model.end)
+        )
 
     def on_update(self, model: Teavent):
         self._cancel_tasks(model.id)

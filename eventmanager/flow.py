@@ -21,6 +21,7 @@ class TeaventFlow(StateMachine):
     cancel = cancelled.from_(poll_open, planned)
     start_ = planned.to(started)
     finish = started.to(finished)
+    init = created.to.itself()
     # fmt: on
 
     @property
