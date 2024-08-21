@@ -55,9 +55,9 @@ class TeaventManager:
         except KeyError as e:
             raise UnknownTeavent(teavent_id) from e
 
-    def _schedule(self, task_name: str, teavent_id: str, delay):
+    def _schedule(self, task_name: str, teavent_id: str, delay_seconds: int):
         async def _task():
-            await asyncio.sleep(delay)
+            await asyncio.sleep(delay_seconds)
             self._teavent_sm(teavent_id).send(task_name)
 
         teavent_tasks = self._tasks[teavent_id]
@@ -74,27 +74,32 @@ class TeaventManager:
         for task in self._tasks[teavent_id]:
             task.cancel()
 
-    def _now() -> datetime:
-        return datetime.now()
+    def _delay_seconds(self, t: datetime) -> int:
+        return (t - datetime.now()).total_seconds()
 
     # SM actions
 
+    # TODO: check state reenter
+
     def on_enter_created(self, model: Teavent):
-        delay = model.start_poll_delay(self._now())
-        self._schedule("start_poll", model.id, delay=delay)
+        self._schedule(
+            "start_poll",
+            model.id,
+            delay_seconds=self._delay_seconds(model.start_poll_at),
+        )
 
     def on_enter_poll_open(self, model: Teavent):
-        delay = model.stop_poll_delay(self._now())
-        self._schedule("stop_poll", model.id, delay=delay)
+        self._schedule(
+            "stop_poll", model.id, delay_seconds=self._delay_seconds(model.stop_poll_at)
+        )
 
     def on_enter_planned(self, model: Teavent):
-        # TODO: check state reenter
-        delay = model.start_delay(self._now())
-        self._schedule("start_", model.id, delay=delay)
+        self._schedule(
+            "start_", model.id, delay_seconds=self._delay_seconds(model.start)
+        )
 
     def on_enter_started(self, model: Teavent):
-        delay = model.end_delay(self._now())
-        self._schedule("finish", model.id, delay=delay)
+        self._schedule("finish", model.id, delay_seconds=self._delay_seconds(model.end))
 
     def on_update(self, model: Teavent):
         self._cancel_tasks(model.id)

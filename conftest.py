@@ -20,6 +20,6 @@ def teavent():
         ),
         participant_ids=[],
         state="created",
-        config=TeaventConfig(max=5, min=3),
+        config=TeaventConfig(max=5, min=3, start_poll_at="11:00", stop_poll_at="14:00"),
         communication_ids=[],
     )

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import time, datetime, timedelta
 import warnings
 
 import yaml
@@ -13,9 +13,10 @@ DEFAULT_MAX_PARTICIPANTS = 100
 
 class TeaventConfig(BaseModel):
     max: int = DEFAULT_MAX_PARTICIPANTS
-    min: int = 0
-    start_poll_at: str | None = None
-    stop_poll_at: str | None = None
+    min: int = 1
+
+    start_poll_at: datetime | time | None = None
+    stop_poll_at: datetime | time | None = None
 
     @staticmethod
     def from_description(description: str) -> "TeaventConfig":
@@ -33,6 +34,12 @@ class TeaventConfig(BaseModel):
 class Recurrence(BaseModel):
     schedule: list[str] | None = None
     recurring_event_id: str | None = None
+
+
+DEFAULT_START_POLL_DELTA = timedelta(hours=5)
+DEFAULT_STOP_POLL_DELTA = timedelta(hours=2)
+
+assert DEFAULT_STOP_POLL_DELTA < DEFAULT_START_POLL_DELTA
 
 
 class Teavent(TeaveModel):
@@ -93,17 +100,31 @@ class Teavent(TeaveModel):
     def confirmed_by(self, user_id: str) -> bool:
         return user_id in self.participant_ids
 
-    def start_poll_delay(self, now: datetime) -> timedelta:
-        raise NotImplementedError
+    @property
+    def start_poll_at(self) -> datetime:
+        if self.config.start_poll_at is None:
+            return self._adjust(self.start - DEFAULT_START_POLL_DELTA)
 
-    def stop_poll_delay(self, now: datetime) -> timedelta:
-        raise NotImplementedError
+        return self._adjust(self.config.start_poll_at)
 
-    def start_delay(self, now: datetime) -> timedelta:
-        return now - self.start
+    @property
+    def stop_poll_at(self) -> datetime:
+        if self.config.stop_poll_at is None:
+            return self._adjust(self.start - DEFAULT_STOP_POLL_DELTA)
 
-    def end_delay(self, now: datetime) -> timedelta:
-        return now - self.end
+        return self._adjust(self.config.stop_poll_at)
+
+    def _adjust(self, t: datetime | time):
+        assert isinstance(t, (datetime, time)), f"unknown time type: {type(t)}"
+
+        if isinstance(t, datetime):
+            return t
+        elif isinstance(t, time):
+            return self.start.replace(
+                hour=t.hour,
+                minute=t.minute,
+                second=t.second,
+            )
 
 
 class FlowUpdate(TeaveModel):
