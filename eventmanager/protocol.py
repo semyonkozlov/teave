@@ -8,14 +8,14 @@ from common.models import FlowUpdate, Teavent
 from common.pika_pydantic import ModelMessage
 
 
-@define(hash=True)
-class Protocol:
+@define(eq=False)  # eq=False for hashing by id
+class RmqProtocol:
     _teavents_queue: aio_pika.abc.AbstractQueue
     _outgoing_updates_queue: aio_pika.abc.AbstractQueue
 
     _channel: aio_pika.abc.AbstractChannel
 
-    _tasks: set[asyncio.Task]
+    _tasks: set[asyncio.Task] = {}
 
     async def publish_update(self, outgoing_update: FlowUpdate):
         await self._channel.default_exchange.publish(

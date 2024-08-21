@@ -9,8 +9,10 @@ from common.models import Teavent
 from eventmanager.errors import InconsistencyError, UnknownTeavent
 from eventmanager.flow import TeaventFlow
 
+log = logging.getLogger("manager")
 
-@define(hash=True)
+
+@define(eq=False)  # eq=False for hashing by id
 class TeaventManager:
     _listeners: list = []
     _statemachines: dict[str, TeaventFlow] = {}
@@ -21,11 +23,11 @@ class TeaventManager:
 
     def handle_teavent(self, teavent: Teavent):
         if teavent.id not in self._statemachines:
-            logging.info(f"Got new event {teavent}")
+            log.info(f"Got new teavent {teavent}")
             self._manage(teavent)
             return
 
-        logging.info(f"Got known event {teavent}")
+        log.info(f"Got known teavent {teavent}")
         managed_teavent = self._teavent_sm(teavent.id).teavent
         self._check_consistency(teavent, managed_teavent)
         return managed_teavent
@@ -56,7 +58,12 @@ class TeaventManager:
             raise UnknownTeavent(teavent_id) from e
 
     def _schedule(self, task_name: str, teavent_id: str, delay_seconds: int):
+        log.info(
+            f"Schedule '{teavent_id}:{task_name}' to run in {delay_seconds} seconds"
+        )
+
         async def _task():
+            log.info(f"Sleeping {delay_seconds} seconds...")
             await asyncio.sleep(delay_seconds)
             self._teavent_sm(teavent_id).send(task_name)
 
@@ -66,6 +73,7 @@ class TeaventManager:
         teavent_tasks[task_name] = task
 
         def _on_task_done(t: asyncio.Task):
+            log.info(f"Task '{t.get_name()}' is done")
             teavent_tasks.pop(t.get_name())
 
         task.add_done_callback(_on_task_done)

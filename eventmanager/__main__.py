@@ -5,7 +5,7 @@ import aio_pika
 from aio_pika.patterns import RPC
 
 from common.models import Teavent
-from eventmanager.protocol import Protocol
+from eventmanager.protocol import RmqProtocol
 from eventmanager.manager import TeaventManager
 
 
@@ -20,8 +20,8 @@ async def main():
         outgoing_updates = await channel.declare_queue("outgoing_updates", durable=True)
         await channel.set_qos(prefetch_size=0)
 
-        protocol = Protocol(teavents, outgoing_updates, channel)
-        teavent_manager = TeaventManager(listeners=[protocol])
+        protocol = RmqProtocol(teavents, outgoing_updates, channel)
+        manager = TeaventManager(listeners=[protocol])
 
         logging.info("Register RPC")
 
@@ -29,11 +29,11 @@ async def main():
         rpc.host_exceptions = True
 
         async def list_teavents() -> list[Teavent]:
-            return teavent_manager.list_teavents()
+            return manager.list_teavents()
 
         async def user_action(type: str, user_id: str, teavent_id: str):
             try:
-                return teavent_manager.handle_user_action(
+                return manager.handle_user_action(
                     type=type, user_id=user_id, teavent_id=teavent_id
                 )
             except Exception as e:
@@ -47,7 +47,7 @@ async def main():
 
         async def on_teavent(message: aio_pika.abc.AbstractIncomingMessage):
             teavent = Teavent.from_message(message)
-            if managed_teavent := teavent_manager.handle_teavent(teavent):
+            if managed_teavent := manager.handle_teavent(teavent):
                 await protocol.ack_teavent(
                     managed_teavent, new_delivery_tag=teavent._delivery_tag
                 )
