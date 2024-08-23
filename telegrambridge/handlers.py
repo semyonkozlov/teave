@@ -38,6 +38,11 @@ async def handle_create_teavents_from_gcal_link(
     gcal_events = await calendar.list_events(calendar_id)
     teavents_to_publish = []
     for item in gcal_events["items"]:
+        if item["status"] == "cancelled":
+            # TODO
+            log.warning(f"Skip cancelled event: {item}")
+            continue
+
         try:
             teavents_to_publish.append(
                 Teavent.from_gcal_event(item, communication_ids=[str(message.chat.id)])

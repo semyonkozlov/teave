@@ -11,4 +11,4 @@ class UnknownTeavent(TeaveError):
 class TeaventIsInFinalState(TeaveError):
     def __init__(self, teavent: Teavent):
         self.teavent = teavent
-        super().__init__(f"Teavet {teavent.id} is in final state '{teavent.state}")
+        super().__init__(f"Teavet {teavent.id} is in final state '{teavent.state}'")

@@ -4,7 +4,7 @@ from statemachine import State
 
 from common.models import Teavent
 
-log = logging.getLogger("transitions")
+log = logging.getLogger(__name__)
 
 
 class TransitionsLogger:

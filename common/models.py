@@ -97,6 +97,12 @@ class Teavent(TeaveModel):
             warnings.warn("num_participants > config.max")
         return self.num_participants >= self.config.max
 
+    @property
+    def is_reccurrent(self) -> bool:
+        # TODO
+        return False
+        # return self.recurrence and self.recurrence.schedule
+
     def confirmed_by(self, user_id: str) -> bool:
         return user_id in self.participant_ids
 

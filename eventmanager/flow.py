@@ -9,8 +9,10 @@ class TeaventFlow(StateMachine):
     poll_open = State()
     planned = State()
     started = State()
-    cancelled = State(final=True)
-    finished = State(final=True)
+    cancelled = State()
+    ended = State()
+
+    finalized = State(final=True)
 
     # transitions
     # fmt: off
@@ -20,8 +22,9 @@ class TeaventFlow(StateMachine):
     stop_poll = poll_open.to(planned, cond="ready") | poll_open.to(cancelled, unless="ready")
     cancel = cancelled.from_(poll_open, planned)
     start_ = planned.to(started)
-    finish = started.to(finished)
-    init = created.to.itself()
+    end = started.to(ended)
+    finalize = finalized.from_(cancelled, ended)
+    recreate = created.from_(cancelled, ended)
     # fmt: on
 
     @property

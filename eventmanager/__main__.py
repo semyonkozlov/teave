@@ -68,6 +68,12 @@ async def main():
                 prev_tag = managed_teavent.replace_tag(teavent._delivery_tag)
                 await protocol.drop(prev_tag)
 
+                # TODO: ugly: drop finalized teavent
+                if managed_teavent.state == teavent.state == "finalized":
+                    logging.info(f"Finalyzing teavent {teavent.id}")
+                    manager.drop(managed_teavent.id)
+                    await protocol.drop(managed_teavent._delivery_tag)
+
         await teavents.consume(on_teavent)
 
         await asyncio.Future()

@@ -9,7 +9,9 @@ from statemachine import State
 from common.models import FlowUpdate, Teavent
 from common.pika_pydantic import ModelMessage
 
-log = logging.getLogger("protocol")
+from eventmanager.flow import TeaventFlow
+
+log = logging.getLogger(__name__)
 
 
 @define(eq=False)  # eq=False for hashing by id
@@ -62,11 +64,8 @@ class RmqProtocol:
     # SM actions
 
     def on_enter_state(self, state: State, model: Teavent):
-        log.info(f"on enter state {state.id}")
+        log.info(f"Publish state {state.id}")
 
         self._create_task(
             self._publish(teavent=model.model_copy(), update_type=state.name)
         )
-
-        if state.final:
-            self._create_task(self.drop(tag=model._delivery_tag))
