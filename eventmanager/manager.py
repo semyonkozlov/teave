@@ -7,7 +7,7 @@ from datetime import datetime
 from attr import define
 
 from common.models import Teavent
-from eventmanager.errors import InconsistencyError, UnknownTeavent
+from eventmanager.errors import UnknownTeavent
 from eventmanager.flow import TeaventFlow
 from eventmanager.transitions_logger import TransitionsLogger
 
@@ -24,12 +24,16 @@ class TeaventManager:
         return list(sm.teavent for sm in self._statemachines.values())
 
     def handle_teavent(self, teavent: Teavent) -> Teavent | None:
+        log.info(
+            f"Teavent {teavent.id} state={teavent.state} delivery_tag={teavent._delivery_tag}"
+        )
+
         if teavent.id not in self._statemachines:
             log.info(f"Got new teavent {teavent}")
             self._manage(teavent)
             return
 
-        log.info(f"Got known teavent {teavent.id}")
+        log.info(f"Got known teavent {teavent.id} state={teavent.state}")
         return self._teavent_sm(teavent.id).teavent
 
     def handle_user_action(self, type: str, user_id: str, teavent_id: str):
@@ -42,7 +46,18 @@ class TeaventManager:
             listeners=[*self._listeners, self, TransitionsLogger()],
         )
         self._statemachines[teavent.id] = sm
-        # sm.init()
+        self._init(sm)
+
+    def _init(self, sm: TeaventFlow):
+        match sm.current_state:
+            case TeaventFlow.created:
+                self.on_enter_created(sm.teavent)
+            case TeaventFlow.poll_open:
+                self.on_enter_poll_open(sm.teavent)
+            case TeaventFlow.planned:
+                self.on_enter_planned(sm.teavent)
+            case TeaventFlow.started:
+                self.on_enter_started(sm.teavent)
 
     def _teavent_sm(self, teavent_id: str) -> TeaventFlow:
         try:

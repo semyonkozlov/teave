@@ -24,7 +24,3 @@ class TeaveModel(pydantic.BaseModel):
         model = cls.model_validate_json(message.body.decode())
         model._delivery_tag = message.delivery_tag
         return model
-
-    async def ack_delivery(self, channel: AbstractChannel):
-        underlay = await channel.get_underlay_channel()
-        return await underlay.basic_ack(self._delivery_tag)

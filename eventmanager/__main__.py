@@ -52,8 +52,11 @@ async def main():
         async def on_teavent(message: aio_pika.abc.AbstractIncomingMessage):
             teavent = Teavent.from_message(message)
             if managed_teavent := manager.handle_teavent(teavent):
-                await protocol.ack_teavent(
-                    managed_teavent, new_delivery_tag=teavent._delivery_tag
+                prev_tag = managed_teavent._delivery_tag
+                managed_teavent._delivery_tag = teavent._delivery_tag
+                await protocol.drop(prev_tag)
+                logging.info(
+                    f"Teavent {managed_teavent.id} has delivery_tag={managed_teavent._delivery_tag}"
                 )
 
         await teavents.consume(on_teavent)
