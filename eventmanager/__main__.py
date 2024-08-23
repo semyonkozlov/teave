@@ -5,6 +5,7 @@ import aio_pika
 from aio_pika.patterns import RPC
 
 from common.models import Teavent
+from eventmanager.errors import TeaventIsInFinalState
 from eventmanager.protocol import RmqProtocol
 from eventmanager.manager import TeaventManager
 
@@ -25,7 +26,12 @@ async def main():
         logging.info("Init manager")
         manager = TeaventManager(listeners=[protocol])
         for teavent in await protocol.fetch_teavents():
-            manager.handle_teavent(teavent)
+            try:
+                manager.handle_teavent(teavent)
+            except TeaventIsInFinalState:
+                # TODO make it dry
+                logging.exception("Teavent is in final state")
+                await protocol.drop(teavent._delivery_tag)
 
         logging.info("Register RPC")
 
@@ -51,13 +57,16 @@ async def main():
 
         async def on_teavent(message: aio_pika.abc.AbstractIncomingMessage):
             teavent = Teavent.from_message(message)
-            if managed_teavent := manager.handle_teavent(teavent):
-                prev_tag = managed_teavent._delivery_tag
-                managed_teavent._delivery_tag = teavent._delivery_tag
+            try:
+                managed_teavent = manager.handle_teavent(teavent)
+            except TeaventIsInFinalState:
+                logging.exception("Teavent is in final state")
+                await protocol.drop(teavent._delivery_tag)
+                return
+
+            if managed_teavent is not None:
+                prev_tag = managed_teavent.replace_tag(teavent._delivery_tag)
                 await protocol.drop(prev_tag)
-                logging.info(
-                    f"Teavent {managed_teavent.id} has delivery_tag={managed_teavent._delivery_tag}"
-                )
 
         await teavents.consume(on_teavent)
 

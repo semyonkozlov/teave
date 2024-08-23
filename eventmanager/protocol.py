@@ -1,4 +1,5 @@
 import asyncio
+from collections.abc import Coroutine
 import logging
 
 import aio_pika
@@ -49,17 +50,23 @@ class RmqProtocol:
 
         return list(uniq_teavents.values())
 
-    async def _task(self, teavent: Teavent, update_type: str):
+    async def _publish(self, teavent: Teavent, update_type: str):
         await self.publish_teavent(teavent)
         await self.publish_update(FlowUpdate.for_teavent(teavent, type=update_type))
+
+    def _create_task(self, coro: Coroutine):
+        task = asyncio.create_task(coro)
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
 
     # SM actions
 
     def on_enter_state(self, state: State, model: Teavent):
         log.info(f"on enter state {state.id}")
 
-        task = asyncio.create_task(
-            self._task(teavent=model.model_copy(), update_type=state.name)
+        self._create_task(
+            self._publish(teavent=model.model_copy(), update_type=state.name)
         )
-        self._tasks.add(task)
-        task.add_done_callback(self._tasks.discard)
+
+        if state.final:
+            self._create_task(self.drop(tag=model._delivery_tag))

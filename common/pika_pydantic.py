@@ -24,3 +24,8 @@ class TeaveModel(pydantic.BaseModel):
         model = cls.model_validate_json(message.body.decode())
         model._delivery_tag = message.delivery_tag
         return model
+
+    def replace_tag(self, new_tag: int) -> int:
+        prev_tag = self._delivery_tag
+        self._delivery_tag = new_tag
+        return prev_tag

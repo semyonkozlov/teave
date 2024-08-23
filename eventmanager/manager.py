@@ -5,9 +5,10 @@ from collections import defaultdict
 from datetime import datetime
 
 from attr import define
+from statemachine import State
 
 from common.models import Teavent
-from eventmanager.errors import UnknownTeavent
+from eventmanager.errors import TeaventIsInFinalState, UnknownTeavent
 from eventmanager.flow import TeaventFlow
 from eventmanager.transitions_logger import TransitionsLogger
 
@@ -45,6 +46,10 @@ class TeaventManager:
             state_field="state",
             listeners=[*self._listeners, self, TransitionsLogger()],
         )
+
+        if sm.current_state.final:
+            raise TeaventIsInFinalState(teavent)
+
         self._statemachines[teavent.id] = sm
         self._init(sm)
 
@@ -91,7 +96,9 @@ class TeaventManager:
             task.cancel()
 
     def _delay_seconds(self, t: datetime) -> int:
-        return (t - datetime.now(tz=t.tzinfo)).total_seconds()
+        # TODO
+        return 5
+        # return (t - datetime.now(tz=t.tzinfo)).total_seconds()
 
     # SM actions
 
@@ -121,7 +128,9 @@ class TeaventManager:
             TeaventFlow.finish, model.id, delay_seconds=self._delay_seconds(model.end)
         )
 
+    def on_enter_state(self, state: State, model: Teavent):
+        if state.final:
+            self._statemachines.pop(model.id)
+
     def on_update(self, model: Teavent):
         self._cancel_tasks(model.id)
-
-    def on_enter_finished(self): ...
