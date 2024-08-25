@@ -1,16 +1,8 @@
-from dateutil.rrule import rrulestr, rruleset
 from datetime import datetime
 
 from common.models import Teavent
 
 from statemachine import State, StateMachine
-
-
-def create_rruleset(rrules: list[str]) -> rruleset:
-    rr = rruleset()
-    for r in rrules:
-        rr.rrule(rrulestr(r))
-    return rr
 
 
 class TeaventFlow(StateMachine):
@@ -60,11 +52,11 @@ class TeaventFlow(StateMachine):
             raise RuntimeError("Teavent must be recurring to recreate")
 
     @recreate.on
-    def reset(self, model: Teavent, moved_from_series: list[Teavent], now: datetime):
-        rr = create_rruleset(model.rrule)
-        for t in moved_from_series:
-            rr.exdate(t.start.date())
-        next_date = rr.after(now)
-        model.shift_to(next_date.date())
+    def shift_timings(
+        self, model: Teavent, now: datetime, moved_from_series: list[Teavent]
+    ):
+        model.shift_timings(now, moved_from_series)
 
+    @recreate.on
+    def reset_participants(self, model: Teavent):
         model.participant_ids = []

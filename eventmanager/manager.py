@@ -2,7 +2,7 @@ import asyncio
 from collections.abc import Callable
 import logging
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from attr import define
 
@@ -19,8 +19,6 @@ class TeaventManager:
     _listeners: list = []
     _statemachines: dict[str, TeaventFlow] = {}
     _tasks: dict[str, dict[str, asyncio.Task]] = defaultdict(dict)
-
-    _finalized: dict[str, TeaventFlow] = {}
 
     def list_teavents(self) -> list[Teavent]:
         return list(sm.teavent for sm in self._statemachines.values())
@@ -50,6 +48,10 @@ class TeaventManager:
         return sm
 
     def _manage(self, teavent: Teavent):
+        if teavent.is_reccurring:
+            # TODO: all moved teavents must be managed
+            teavent.shift_timings(datetime.now(), self._get_moved_teavents(teavent.id))
+
         sm = TeaventFlow(
             model=teavent,
             state_field="state",
@@ -80,9 +82,14 @@ class TeaventManager:
             raise UnknownTeavent(teavent_id) from e
 
     def _schedule(self, event: Callable, teavent_id: str, delay_seconds: int):
+        assert delay_seconds > 0, f"teavent from the past: {teavent_id}"
+
         task_name = f"{teavent_id}:{event.name}"
 
-        log.info(f"Schedule '{task_name}' to run in {delay_seconds} seconds")
+        at = datetime.now() + timedelta(seconds=delay_seconds)
+        log.info(
+            f"Schedule '{task_name}' to run in {delay_seconds} seconds (at {at} UTC)"
+        )
 
         async def _task():
             log.info(f"Sleeping {delay_seconds} seconds...")
@@ -105,9 +112,7 @@ class TeaventManager:
             task.cancel()
 
     def _delay_seconds(self, t: datetime) -> int:
-        # TODO
-        return 5
-        # return (t - datetime.now(tz=t.tzinfo)).total_seconds()
+        return (t - datetime.now(tz=t.tzinfo)).total_seconds()
 
     def _get_moved_teavents(self, recurring_teavent_id: str) -> list[Teavent]:
         return [
@@ -117,6 +122,8 @@ class TeaventManager:
         ]
 
     # SM actions
+
+    # TODO: check state reenter (ex planned -> planned)
 
     @TeaventFlow.created.enter
     def _schedule_start_poll(self, model: Teavent):

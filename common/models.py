@@ -2,8 +2,10 @@ from datetime import time, datetime, timedelta, date
 import logging
 import warnings
 
+from dateutil.rrule import rruleset, rrulestr
 import yaml
-from pydantic import BaseModel, Field
+import pydantic
+from pydantic import Field
 
 from common.errors import EventDescriptionParsingError
 from common.pika_pydantic import TeaveModel
@@ -13,22 +15,30 @@ log = logging.getLogger(__name__)
 DEFAULT_MAX_PARTICIPANTS = 100
 
 
-class TeaventConfig(BaseModel):
+def create_rruleset(rrules: list[str]) -> rruleset:
+    rr = rruleset()
+    for r in rrules:
+        rr.rrule(rrulestr(r))
+    return rr
+
+
+class TeaventConfig(pydantic.BaseModel):
     max: int = DEFAULT_MAX_PARTICIPANTS
     min: int = 1
 
     start_poll_at: datetime | time | None = None
     stop_poll_at: datetime | time | None = None
 
+    model_config = {"extra": "forbid"}
+
     @staticmethod
     def from_description(description: str) -> "TeaventConfig":
         try:
             parsed = yaml.load(description, Loader=yaml.BaseLoader)
-        except yaml.YAMLError as e:
+            if isinstance(parsed, dict) and (config := parsed.get("config")):
+                return TeaventConfig(**config)
+        except (pydantic.ValidationError, yaml.YAMLError) as e:
             raise EventDescriptionParsingError from e
-
-        if isinstance(parsed, dict) and (config := parsed.get("config")):
-            return TeaventConfig(**config)
 
         return TeaventConfig()
 
@@ -45,7 +55,7 @@ class Teavent(TeaveModel):
 
     summary: str
     description: str
-    location: str
+    location: str | None
 
     start: datetime
     end: datetime
@@ -65,17 +75,18 @@ class Teavent(TeaveModel):
         gcal_event_item: dict, communication_ids: list[str]
     ) -> "Teavent":
         _ = gcal_event_item
+        description = _["description"].replace("\xa0", " ")
         return Teavent(
             id=_["id"],
             link=_["htmlLink"],
             summary=_["summary"],
-            description=_["description"],
-            location=_["location"],
+            description=description,
+            location=_.get("location"),
             start=datetime.fromisoformat(_["start"]["dateTime"]),
             end=datetime.fromisoformat(_["end"]["dateTime"]),
             rrule=_.get("recurrence"),
             recurring_event_id=_.get("recurringEventId"),
-            config=TeaventConfig.from_description(_["description"]),
+            config=TeaventConfig.from_description(description),
             communication_ids=communication_ids,
         )
 
@@ -126,9 +137,16 @@ class Teavent(TeaveModel):
                 second=t.second,
             )
 
+    def shift_timings(self, now: datetime, moved_from_series: list["Teavent"]):
+        rr = create_rruleset(self.rrule)
+        for t in moved_from_series:
+            rr.exdate(t.start.date())
+        next_date = rr.after(now)
+        self.shift_to(next_date.date())
+
     def shift_to(self, new_date: date):
-        self.start.replace(year=new_date.year, month=new_date.month, day=new_date.day)
-        self.end.replace(year=new_date.year, month=new_date.month, day=new_date.day)
+        self.start = datetime.combine(new_date, self.start.time(), self.start.tzinfo)
+        self.end = datetime.combine(new_date, self.end.time(), self.end.tzinfo)
 
         log.info(f"Shift teavent {self.id} to {self.start}")
 
