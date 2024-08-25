@@ -2,7 +2,7 @@ from datetime import datetime
 
 import pytest
 
-from common.models import Recurrence, Teavent, TeaventConfig
+from common.models import Teavent, TeaventConfig
 
 
 @pytest.fixture
@@ -15,9 +15,7 @@ def teavent():
         location="Arena 2, 2 University St, T'bilisi, Georgia",
         start=datetime(2024, 7, 31, 21, 0),
         end=datetime(2024, 7, 31, 23, 0),
-        recurrence=Recurrence(
-            schedule=["RRULE:FREQ=WEEKLY;WKST=MO;BYDAY=WE,MO,FR"],
-        ),
+        rrule=["RRULE:FREQ=WEEKLY;WKST=MO;BYDAY=WE,MO,FR"],
         participant_ids=[],
         state="created",
         config=TeaventConfig(max=5, min=3, start_poll_at="11:00", stop_poll_at="14:00"),

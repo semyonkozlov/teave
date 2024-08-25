@@ -44,7 +44,10 @@ class TeaventManager:
         return self._teavent_sm(teavent_id).send(type, user_id=user_id)
 
     def drop(self, teavent_id: str):
-        return self._statemachines.pop(teavent_id)
+        sm = self._statemachines.pop(teavent_id)
+        if sm.current_state not in TeaventFlow.final_states:
+            raise RuntimeError("Attempt to drop teavent in non-final state")
+        return sm
 
     def _manage(self, teavent: Teavent):
         sm = TeaventFlow(
@@ -106,6 +109,13 @@ class TeaventManager:
         return 5
         # return (t - datetime.now(tz=t.tzinfo)).total_seconds()
 
+    def _get_moved_teavents(self, recurring_teavent_id: str) -> list[Teavent]:
+        return [
+            t
+            for t in self.list_teavents()
+            if t.recurring_event_id == recurring_teavent_id
+        ]
+
     # SM actions
 
     @TeaventFlow.created.enter
@@ -138,9 +148,11 @@ class TeaventManager:
 
     @TeaventFlow.cancelled.enter
     @TeaventFlow.ended.enter
-    def _recreate_or_finalize(self, model: Teavent):
+    def recreate_or_finalize(self, model: Teavent):
         sm = self._teavent_sm(model.id)
-        if model.is_reccurrent:
-            sm.recreate()
+        if model.is_reccurring:
+            sm.recreate(
+                now=datetime.now(), moved_from_series=self._get_moved_teavents(model.id)
+            )
         else:
             sm.finalize()

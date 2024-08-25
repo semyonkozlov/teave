@@ -1,6 +1,16 @@
+from dateutil.rrule import rrulestr, rruleset
+from datetime import datetime
+
 from common.models import Teavent
 
 from statemachine import State, StateMachine
+
+
+def create_rruleset(rrules: list[str]) -> rruleset:
+    rr = rruleset()
+    for r in rrules:
+        rr.rrule(rrulestr(r))
+    return rr
 
 
 class TeaventFlow(StateMachine):
@@ -31,19 +41,30 @@ class TeaventFlow(StateMachine):
     def teavent(self) -> Teavent:
         return self.model
 
-    @planned.to(planned)
-    def reject(self): ...
-
-    @poll_open.to(poll_open)
-    def reject(self): ...
-
-    def on_confirm(self, user_id: str, model: Teavent):
+    @confirm.on
+    def add_participant(self, user_id: str, model: Teavent):
         model.participant_ids.append(user_id)
 
-    def on_reject(self, user_id: str, model: Teavent):
+    @reject.on
+    def remove_participant(self, user_id: str, model: Teavent):
         model.participant_ids.remove(user_id)
 
     @confirm.validators
     def not_confirmed_before(self, user_id: str, model: Teavent):
         if model.confirmed_by(user_id):
             raise RuntimeError("Already confirmed")
+
+    @recreate.validators
+    def is_recurring(self, model: Teavent):
+        if not model.is_reccurring:
+            raise RuntimeError("Teavent must be recurring to recreate")
+
+    @recreate.on
+    def reset(self, model: Teavent, moved_from_series: list[Teavent], now: datetime):
+        rr = create_rruleset(model.rrule)
+        for t in moved_from_series:
+            rr.exdate(t.start.date())
+        next_date = rr.after(now)
+        model.shift_to(next_date.date())
+
+        model.participant_ids = []

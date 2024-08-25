@@ -9,8 +9,6 @@ from statemachine import State
 from common.models import FlowUpdate, Teavent
 from common.pika_pydantic import ModelMessage
 
-from eventmanager.flow import TeaventFlow
-
 log = logging.getLogger(__name__)
 
 

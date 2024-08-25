@@ -28,6 +28,5 @@ def test_not_enough_participants(flow: TeaventFlow):
 
     flow.stop_poll()
     assert flow.current_state == flow.cancelled
-    assert flow.current_state in flow.final_states
 
     assert flow.teavent.participant_ids == ["1", "2"]

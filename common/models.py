@@ -1,4 +1,5 @@
-from datetime import time, datetime, timedelta
+from datetime import time, datetime, timedelta, date
+import logging
 import warnings
 
 import yaml
@@ -7,6 +8,7 @@ from pydantic import BaseModel, Field
 from common.errors import EventDescriptionParsingError
 from common.pika_pydantic import TeaveModel
 
+log = logging.getLogger(__name__)
 
 DEFAULT_MAX_PARTICIPANTS = 100
 
@@ -31,11 +33,6 @@ class TeaventConfig(BaseModel):
         return TeaventConfig()
 
 
-class Recurrence(BaseModel):
-    schedule: list[str] | None = None
-    recurring_event_id: str | None = None
-
-
 DEFAULT_START_POLL_DELTA = timedelta(hours=5)
 DEFAULT_STOP_POLL_DELTA = timedelta(hours=2)
 
@@ -53,7 +50,8 @@ class Teavent(TeaveModel):
     start: datetime
     end: datetime
 
-    recurrence: Recurrence | None = None
+    rrule: list[str] | None = None
+    recurring_event_id: str | None = None
 
     participant_ids: list[str] = []
     state: str = "created"
@@ -75,10 +73,8 @@ class Teavent(TeaveModel):
             location=_["location"],
             start=datetime.fromisoformat(_["start"]["dateTime"]),
             end=datetime.fromisoformat(_["end"]["dateTime"]),
-            recurrence=Recurrence(
-                schedule=_.get("recurrence"),
-                recurring_event_id=_.get("recurringEventId"),
-            ),
+            rrule=_.get("recurrence"),
+            recurring_event_id=_.get("recurringEventId"),
             config=TeaventConfig.from_description(_["description"]),
             communication_ids=communication_ids,
         )
@@ -98,10 +94,8 @@ class Teavent(TeaveModel):
         return self.num_participants >= self.config.max
 
     @property
-    def is_reccurrent(self) -> bool:
-        # TODO
-        return False
-        # return self.recurrence and self.recurrence.schedule
+    def is_reccurring(self) -> bool:
+        return bool(self.rrule)
 
     def confirmed_by(self, user_id: str) -> bool:
         return user_id in self.participant_ids
@@ -131,6 +125,12 @@ class Teavent(TeaveModel):
                 minute=t.minute,
                 second=t.second,
             )
+
+    def shift_to(self, new_date: date):
+        self.start.replace(year=new_date.year, month=new_date.month, day=new_date.day)
+        self.end.replace(year=new_date.year, month=new_date.month, day=new_date.day)
+
+        log.info(f"Shift teavent {self.id} to {self.start}")
 
 
 class FlowUpdate(TeaveModel):
