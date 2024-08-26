@@ -53,9 +53,9 @@ class TeaventFlow(StateMachine):
 
     @recreate.on
     def shift_timings(
-        self, model: Teavent, now: datetime, moved_from_series: list[Teavent]
+        self, model: Teavent, now: datetime, recurring_exceptions: list[Teavent]
     ):
-        model.shift_timings(now, moved_from_series)
+        model.shift_timings(now, recurring_exceptions)
 
     @recreate.on
     def reset_participants(self, model: Teavent):

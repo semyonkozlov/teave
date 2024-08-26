@@ -52,8 +52,12 @@ class TeaventManager:
 
     def _manage(self, teavent: Teavent):
         if teavent.is_reccurring:
-            # TODO: all moved teavents must be managed
-            teavent.shift_timings(datetime.now(), self._get_moved_teavents(teavent.id))
+            # all recurring_exceptions must be managed
+            # TODO: handle recurring exceptions properly
+            teavent.shift_timings(
+                datetime.now(teavent.tz),
+                self._get_recurring_exceptions(teavent.id),
+            )
 
         sm = TeaventFlow(
             model=teavent,
@@ -115,7 +119,7 @@ class TeaventManager:
     def _delay_seconds(self, t: datetime) -> int:
         return (t - datetime.now(tz=t.tzinfo)).total_seconds()
 
-    def _get_moved_teavents(self, recurring_teavent_id: str) -> list[Teavent]:
+    def _get_recurring_exceptions(self, recurring_teavent_id: str) -> list[Teavent]:
         return [
             t
             for t in self.list_teavents()
@@ -160,7 +164,8 @@ class TeaventManager:
         sm = self._teavent_sm(model.id)
         if model.is_reccurring:
             sm.recreate(
-                now=datetime.now(), moved_from_series=self._get_moved_teavents(model.id)
+                now=datetime.now(),
+                recurring_exceptions=self._get_recurring_exceptions(model.id),
             )
         else:
             sm.finalize()

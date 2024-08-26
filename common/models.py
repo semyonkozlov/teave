@@ -12,14 +12,6 @@ from common.pika_pydantic import TeaveModel
 
 log = logging.getLogger(__name__)
 
-
-def create_rruleset(rrules: list[str]) -> rruleset:
-    rr = rruleset()
-    for r in rrules:
-        rr.rrule(rrulestr(r))
-    return rr
-
-
 DEFAULT_MAX_PARTICIPANTS = 100
 
 
@@ -126,6 +118,10 @@ class Teavent(TeaveModel):
 
         return self._adjust(self.config.stop_poll_at)
 
+    @property
+    def tz(self):
+        return self.start.tzinfo
+
     def _adjust(self, t: datetime | time):
         assert isinstance(t, (datetime, time)), f"unknown time type: {type(t)}"
 
@@ -138,12 +134,23 @@ class Teavent(TeaveModel):
                 second=t.second,
             )
 
-    def shift_timings(self, now: datetime, moved_from_series: list["Teavent"]):
-        rr = create_rruleset(self.rrule)
-        for t in moved_from_series:
-            rr.exdate(t.start.date())
-        next_date = rr.after(now)
-        self.shift_to(next_date.date())
+    def _rruleset(self) -> rruleset:
+        rr = rruleset()
+        for r in self.rrule:
+            rr.rrule(rrulestr(r, dtstart=self.start))
+        return rr
+
+    def shift_timings(self, now: datetime, recurring_exceptions: list["Teavent"]):
+        rr = self._rruleset()
+        for t in recurring_exceptions:
+            assert t.rrule is None
+            assert t.recurring_event_id is not None
+            assert t.recurring_event_id == self.id
+            exdate = datetime.combine(t.start.date(), self.start.time())
+            rr.exdate(exdate)
+
+        next_dt = rr.after(now)
+        self.shift_to(next_dt.date())
 
     def shift_to(self, new_date: date):
         self.start = datetime.combine(new_date, self.start.time(), self.start.tzinfo)

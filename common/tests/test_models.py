@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from datetime import datetime, timedelta, time
+from datetime import datetime, time
 
 import pytest
 
@@ -33,9 +33,51 @@ def test_config_from_description(description: str):
     assert config.min == 2
     assert config.max == 8
 
-    assert config.start_poll_at == time(hour=11)
+    assert config.start_poll_at == time(11, 00)
 
 
 def test_teavent_from_gcal_event(gcal_event_items):
     for item in gcal_event_items:
         Teavent.from_gcal_event(item, communication_ids=[])
+
+
+@pytest.fixture
+def now():
+    return datetime(2024, 8, 27)
+
+
+def test_rrule_simple(teavent: Teavent, now: datetime):
+    assert teavent.is_reccurring
+
+    teavent.shift_timings(now, [])
+    assert teavent.start == datetime(2024, 8, 28, 21, 00)
+
+    assert teavent.config.start_poll_at == time(11, 00)
+    assert teavent.start_poll_at == datetime(2024, 8, 28, 11, 00)
+
+
+@pytest.fixture
+def recurring_exception():
+    return Teavent(
+        id="2gud232jsatd8pmnu0mnng0if2_20240828T150000Z",
+        link="https://www.example.com",
+        summary="Тренировка 2",
+        description="Тренировка по настольному теннису",
+        location="Arena 2, 2 University St, T'bilisi, Georgia",
+        start=datetime(2024, 8, 28, 19, 0),
+        end=datetime(2024, 8, 28, 21, 0),
+        recurring_event_id="2gud232jsatd8pmnu0mnng0if2",
+        participant_ids=[],
+        state="created",
+        config=TeaventConfig(max=5, min=3, start_poll_at="11:00", stop_poll_at="14:00"),
+        communication_ids=[],
+    )
+
+
+def test_rrule_with_recurring_exceptions(
+    now: datetime, teavent: Teavent, recurring_exception: Teavent
+):
+    teavent.shift_timings(now, [recurring_exception])
+
+    assert teavent.start == datetime(2024, 8, 30, 21, 00)
+    assert teavent.start_poll_at == datetime(2024, 8, 30, 11, 00)
