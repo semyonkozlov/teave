@@ -4,8 +4,6 @@ import logging
 from collections import defaultdict
 from datetime import datetime, timedelta
 
-from attr import define
-
 from common.models import Teavent
 from eventmanager.errors import (
     TeaventFromThePast,
@@ -18,11 +16,12 @@ from eventmanager.transitions_logger import TransitionsLogger
 log = logging.getLogger(__name__)
 
 
-@define(eq=False)  # eq=False for hashing by id
 class TeaventManager:
-    _listeners: list = []
-    _statemachines: dict[str, TeaventFlow] = {}
-    _tasks: dict[str, dict[str, asyncio.Task]] = defaultdict(dict)
+    def __init__(self, listeners: list = None):
+        self._listeners: list = listeners or []
+
+        self._statemachines: dict[str, TeaventFlow] = {}
+        self._tasks: dict[str, dict[str, asyncio.Task]] = defaultdict(dict)
 
     def list_teavents(self) -> list[Teavent]:
         return list(sm.teavent for sm in self._statemachines.values())
@@ -91,13 +90,11 @@ class TeaventManager:
 
         task_name = f"{teavent.id}:{event.name}"
 
-        at = datetime.now() + timedelta(seconds=delay_seconds)
-        log.info(
-            f"Schedule '{task_name}' to run in {delay_seconds} seconds (at {at} UTC)"
-        )
-
         async def _task():
-            log.info(f"Sleeping {delay_seconds} seconds...")
+            at = datetime.now() + timedelta(seconds=delay_seconds)
+            log.info(
+                f"Schedule '{task_name}' to run in {delay_seconds} seconds (at {at} UTC)"
+            )
             await asyncio.sleep(delay_seconds)
             event(self._teavent_sm(teavent.id))
 
@@ -108,7 +105,6 @@ class TeaventManager:
 
         def _on_task_done(t: asyncio.Task):
             teavent_tasks.pop(t.get_name())
-            log.info(f"Task '{task_name}' is done, result: {t.result()}")
 
         task.add_done_callback(_on_task_done)
 

@@ -1,7 +1,7 @@
 from typing import TypeVar
 
 import aio_pika
-from aio_pika.abc import AbstractIncomingMessage, AbstractChannel
+from aio_pika.abc import AbstractIncomingMessage
 import pydantic
 
 

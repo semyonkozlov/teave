@@ -12,14 +12,15 @@ from common.pika_pydantic import TeaveModel
 
 log = logging.getLogger(__name__)
 
-DEFAULT_MAX_PARTICIPANTS = 100
-
 
 def create_rruleset(rrules: list[str]) -> rruleset:
     rr = rruleset()
     for r in rrules:
         rr.rrule(rrulestr(r))
     return rr
+
+
+DEFAULT_MAX_PARTICIPANTS = 100
 
 
 class TeaventConfig(pydantic.BaseModel):
@@ -72,7 +73,7 @@ class Teavent(TeaveModel):
 
     @staticmethod
     def from_gcal_event(
-        gcal_event_item: dict, communication_ids: list[str]
+        gcal_event_item: dict[str, str], communication_ids: list[str]
     ) -> "Teavent":
         _ = gcal_event_item
         description = _["description"].replace("\xa0", " ")
