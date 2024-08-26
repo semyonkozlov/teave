@@ -7,7 +7,11 @@ from datetime import datetime, timedelta
 from attr import define
 
 from common.models import Teavent
-from eventmanager.errors import TeaventIsInFinalState, UnknownTeavent
+from eventmanager.errors import (
+    TeaventFromThePast,
+    TeaventIsInFinalState,
+    UnknownTeavent,
+)
 from eventmanager.flow import TeaventFlow
 from eventmanager.transitions_logger import TransitionsLogger
 
@@ -43,7 +47,7 @@ class TeaventManager:
 
     def drop(self, teavent_id: str):
         sm = self._statemachines.pop(teavent_id)
-        if sm.current_state not in TeaventFlow.final_states:
+        if not sm.current_state.final:
             raise RuntimeError("Attempt to drop teavent in non-final state")
         return sm
 
@@ -81,10 +85,11 @@ class TeaventManager:
         except KeyError as e:
             raise UnknownTeavent(teavent_id) from e
 
-    def _schedule(self, event: Callable, teavent_id: str, delay_seconds: int):
-        assert delay_seconds > 0, f"teavent from the past: {teavent_id}"
+    def _schedule(self, event: Callable, teavent: Teavent, delay_seconds: int):
+        if delay_seconds < 0:
+            raise TeaventFromThePast(teavent)
 
-        task_name = f"{teavent_id}:{event.name}"
+        task_name = f"{teavent.id}:{event.name}"
 
         at = datetime.now() + timedelta(seconds=delay_seconds)
         log.info(
@@ -94,9 +99,9 @@ class TeaventManager:
         async def _task():
             log.info(f"Sleeping {delay_seconds} seconds...")
             await asyncio.sleep(delay_seconds)
-            event(self._teavent_sm(teavent_id))
+            event(self._teavent_sm(teavent.id))
 
-        teavent_tasks = self._tasks[teavent_id]
+        teavent_tasks = self._tasks[teavent.id]
 
         task = asyncio.create_task(_task(), name=task_name)
         teavent_tasks[task_name] = task
@@ -129,7 +134,7 @@ class TeaventManager:
     def _schedule_start_poll(self, model: Teavent):
         self._schedule(
             TeaventFlow.start_poll,
-            model.id,
+            model,
             delay_seconds=self._delay_seconds(model.start_poll_at),
         )
 
@@ -137,20 +142,20 @@ class TeaventManager:
     def _schedule_stop_poll(self, model: Teavent):
         self._schedule(
             TeaventFlow.stop_poll,
-            model.id,
+            model,
             delay_seconds=self._delay_seconds(model.stop_poll_at),
         )
 
     @TeaventFlow.planned.enter
     def _schedule_start(self, model: Teavent):
         self._schedule(
-            TeaventFlow.start_, model.id, delay_seconds=self._delay_seconds(model.start)
+            TeaventFlow.start_, model, delay_seconds=self._delay_seconds(model.start)
         )
 
     @TeaventFlow.started.enter
     def _schedule_end(self, model: Teavent):
         self._schedule(
-            TeaventFlow.end, model.id, delay_seconds=self._delay_seconds(model.end)
+            TeaventFlow.end, model, delay_seconds=self._delay_seconds(model.end)
         )
 
     @TeaventFlow.cancelled.enter
