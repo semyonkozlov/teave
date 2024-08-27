@@ -1,12 +1,11 @@
-import asyncio
-from collections.abc import Callable
 import logging
-from collections import defaultdict
-from datetime import datetime, timedelta
+from collections.abc import Callable
+from datetime import datetime
 
+from common.executors import Task
+from common.executors import Executor
 from common.models import Teavent
 from eventmanager.errors import (
-    TeaventFromThePast,
     TeaventIsInFinalState,
     UnknownTeavent,
 )
@@ -17,11 +16,15 @@ log = logging.getLogger(__name__)
 
 
 class TeaventManager:
-    def __init__(self, listeners: list = None):
+    def __init__(
+        self,
+        executor: Executor,
+        listeners: list = None,
+    ):
+        self._executor: Executor = executor
         self._listeners: list = listeners or []
 
         self._statemachines: dict[str, TeaventFlow] = {}
-        self._tasks: dict[str, dict[str, asyncio.Task]] = defaultdict(dict)
 
     def list_teavents(self) -> list[Teavent]:
         return list(sm.teavent for sm in self._statemachines.values())
@@ -88,33 +91,12 @@ class TeaventManager:
         except KeyError as e:
             raise UnknownTeavent(teavent_id) from e
 
-    def _schedule(self, event: Callable, teavent: Teavent, delay_seconds: int):
-        if delay_seconds < 0:
-            raise TeaventFromThePast(teavent)
-
-        task_name = f"{teavent.id}:{event.name}"
-
-        async def _task():
-            at = datetime.now() + timedelta(seconds=delay_seconds)
-            log.info(
-                f"Schedule '{task_name}' to run in {delay_seconds} seconds (at {at} UTC)"
-            )
-            await asyncio.sleep(delay_seconds)
-            event(self._teavent_sm(teavent.id))
-
-        teavent_tasks = self._tasks[teavent.id]
-
-        task = asyncio.create_task(_task(), name=task_name)
-        teavent_tasks[task_name] = task
-
-        def _on_task_done(t: asyncio.Task):
-            teavent_tasks.pop(t.get_name())
-
-        task.add_done_callback(_on_task_done)
-
-    def _cancel_tasks(self, teavent_id: str):
-        for task in self._tasks[teavent_id]:
-            task.cancel()
+    def _schedule(self, trigger: Callable, teavent: Teavent, delay_seconds: int):
+        task = Task(
+            fn=lambda: trigger(self._teavent_sm(teavent.id)),
+            name=f"{teavent.id}:{trigger.name}",
+        )
+        self._executor.schedule(task, delay_seconds=delay_seconds)
 
     def _delay_seconds(self, t: datetime) -> int:
         return (t - datetime.now(tz=t.tzinfo)).total_seconds()
@@ -160,11 +142,11 @@ class TeaventManager:
 
     @TeaventFlow.cancelled.enter
     @TeaventFlow.ended.enter
-    def recreate_or_finalize(self, model: Teavent):
+    def _recreate_or_finalize(self, model: Teavent):
         sm = self._teavent_sm(model.id)
         if model.is_reccurring:
             sm.recreate(
-                now=datetime.now(),
+                now=datetime.now(tz=model.tz),
                 recurring_exceptions=self._get_recurring_exceptions(model.id),
             )
         else:

@@ -5,6 +5,7 @@ import aio_pika
 from aio_pika.patterns import RPC
 
 from common.errors import TeaveError
+from common.executors import AsyncioExecutor
 from common.models import Teavent
 from eventmanager.protocol import RmqProtocol
 from eventmanager.manager import TeaventManager
@@ -22,9 +23,10 @@ async def main():
         await channel.set_qos(prefetch_size=0)
 
         protocol = RmqProtocol(teavents, outgoing_updates, channel)
+        executor = AsyncioExecutor()
 
         logging.info("Init manager")
-        manager = TeaventManager(listeners=[protocol])
+        manager = TeaventManager(executor=executor, listeners=[protocol])
         for teavent in await protocol.fetch_teavents():
             try:
                 manager.handle_teavent(teavent)
@@ -62,6 +64,7 @@ async def main():
             except TeaveError:
                 logging.exception(f"Drop teavent {teavent.id}")
                 await protocol.drop(teavent._delivery_tag)
+                # TODO: drop also from manager
                 return
 
             if managed_teavent is not None:

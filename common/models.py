@@ -122,6 +122,10 @@ class Teavent(TeaveModel):
     def tz(self):
         return self.start.tzinfo
 
+    @property
+    def duration(self) -> timedelta:
+        return self.end - self.start
+
     def _adjust(self, t: datetime | time):
         assert isinstance(t, (datetime, time)), f"unknown time type: {type(t)}"
 
@@ -149,12 +153,14 @@ class Teavent(TeaveModel):
             exdate = datetime.combine(t.start.date(), self.start.time())
             rr.exdate(exdate)
 
-        next_dt = rr.after(now)
+        next_dt: datetime = rr.after(now)
         self.shift_to(next_dt.date())
 
     def shift_to(self, new_date: date):
+        duration = self.duration
+
         self.start = datetime.combine(new_date, self.start.time(), self.start.tzinfo)
-        self.end = datetime.combine(new_date, self.end.time(), self.end.tzinfo)
+        self.end = self.start + duration
 
         log.info(f"Shift teavent {self.id} to {self.start}")
 
