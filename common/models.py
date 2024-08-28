@@ -150,7 +150,7 @@ class Teavent(TeaveModel):
             assert t.rrule is None
             assert t.recurring_event_id is not None
             assert t.recurring_event_id == self.id
-            exdate = datetime.combine(t.start.date(), self.start.time())
+            exdate = datetime.combine(t.start.date(), self.start.time(), tzinfo=self.tz)
             rr.exdate(exdate)
 
         next_dt: datetime = rr.after(now)

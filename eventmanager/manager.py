@@ -2,8 +2,7 @@ import logging
 from collections.abc import Callable
 from datetime import datetime
 
-from common.executors import Task
-from common.executors import Executor
+from common.executors import Executor, Task
 from common.models import Teavent
 from eventmanager.errors import (
     TeaventIsInFinalState,
@@ -58,7 +57,7 @@ class TeaventManager:
             # all recurring_exceptions must be managed
             # TODO: handle recurring exceptions properly
             teavent.shift_timings(
-                datetime.now(teavent.tz),
+                self._executor.now(teavent.tz),
                 self._get_recurring_exceptions(teavent.id),
             )
 
@@ -91,15 +90,13 @@ class TeaventManager:
         except KeyError as e:
             raise UnknownTeavent(teavent_id) from e
 
-    def _schedule(self, trigger: Callable, teavent: Teavent, delay_seconds: int):
+    def _schedule(self, trigger: Callable, teavent: Teavent, at: datetime):
         task = Task(
             fn=lambda: trigger(self._teavent_sm(teavent.id)),
             name=f"{teavent.id}:{trigger.name}",
         )
-        self._executor.schedule(task, delay_seconds=delay_seconds)
-
-    def _delay_seconds(self, t: datetime) -> int:
-        return (t - datetime.now(tz=t.tzinfo)).total_seconds()
+        delay = (at - self._executor.now(tz=at.tzinfo)).total_seconds()
+        self._executor.schedule(task, delay_seconds=delay)
 
     def _get_recurring_exceptions(self, recurring_teavent_id: str) -> list[Teavent]:
         return [
@@ -117,7 +114,7 @@ class TeaventManager:
         self._schedule(
             TeaventFlow.start_poll,
             model,
-            delay_seconds=self._delay_seconds(model.start_poll_at),
+            at=model.start_poll_at,
         )
 
     @TeaventFlow.poll_open.enter
@@ -125,20 +122,20 @@ class TeaventManager:
         self._schedule(
             TeaventFlow.stop_poll,
             model,
-            delay_seconds=self._delay_seconds(model.stop_poll_at),
+            at=model.stop_poll_at,
         )
 
     @TeaventFlow.planned.enter
     def _schedule_start(self, model: Teavent):
         self._schedule(
-            TeaventFlow.start_, model, delay_seconds=self._delay_seconds(model.start)
+            TeaventFlow.start_,
+            model,
+            at=model.start,
         )
 
     @TeaventFlow.started.enter
     def _schedule_end(self, model: Teavent):
-        self._schedule(
-            TeaventFlow.end, model, delay_seconds=self._delay_seconds(model.end)
-        )
+        self._schedule(TeaventFlow.end, model, at=model.end)
 
     @TeaventFlow.cancelled.enter
     @TeaventFlow.ended.enter
@@ -146,7 +143,7 @@ class TeaventManager:
         sm = self._teavent_sm(model.id)
         if model.is_reccurring:
             sm.recreate(
-                now=datetime.now(tz=model.tz),
+                now=self._executor.now(tz=model.tz),
                 recurring_exceptions=self._get_recurring_exceptions(model.id),
             )
         else:

@@ -42,18 +42,18 @@ def test_teavent_from_gcal_event(gcal_event_items):
 
 
 @pytest.fixture
-def now():
-    return datetime(2024, 8, 27)
+def now(teavent):
+    return datetime(2024, 8, 27, tzinfo=teavent.tz)
 
 
 def test_rrule_simple(teavent: Teavent, now: datetime):
     assert teavent.is_reccurring
 
     teavent.shift_timings(now, [])
-    assert teavent.start == datetime(2024, 8, 28, 21, 00)
+    assert teavent.start == datetime(2024, 8, 28, 21, 00, tzinfo=teavent.tz)
 
     assert teavent.config.start_poll_at == time(11, 00)
-    assert teavent.start_poll_at == datetime(2024, 8, 28, 11, 00)
+    assert teavent.start_poll_at == datetime(2024, 8, 28, 11, 00, tzinfo=teavent.tz)
 
 
 @pytest.fixture
@@ -79,5 +79,5 @@ def test_rrule_with_recurring_exceptions(
 ):
     teavent.shift_timings(now, [recurring_exception])
 
-    assert teavent.start == datetime(2024, 8, 30, 21, 00)
-    assert teavent.start_poll_at == datetime(2024, 8, 30, 11, 00)
+    assert teavent.start == datetime(2024, 8, 30, 21, 00, tzinfo=teavent.tz)
+    assert teavent.start_poll_at == datetime(2024, 8, 30, 11, 00, tzinfo=teavent.tz)

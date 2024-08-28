@@ -32,6 +32,9 @@ class Executor(ABC):
     @abstractmethod
     def cancel(self, group_id: str): ...
 
+    @abstractmethod
+    def now(self, tz=None) -> datetime: ...
+
     def tasks(self, group_id: str) -> list:
         return list(self._tasks[group_id].values())
 
@@ -62,3 +65,6 @@ class AsyncioExecutor(Executor):
     def cancel(self, group_id: str):
         for t in self._tasks[group_id]:
             t.cancel()
+
+    def now(self, tz=None) -> datetime:
+        return datetime.now(tz)
