@@ -49,7 +49,7 @@ def now(teavent):
 def test_rrule_simple(teavent: Teavent, now: datetime):
     assert teavent.is_reccurring
 
-    teavent.shift_timings(now, [])
+    teavent.adjust_timings(now, [])
     assert teavent.start == datetime(2024, 8, 28, 21, 00, tzinfo=teavent.tz)
 
     assert teavent.config.start_poll_at == time(11, 00)
@@ -77,7 +77,7 @@ def recurring_exception():
 def test_rrule_with_recurring_exceptions(
     now: datetime, teavent: Teavent, recurring_exception: Teavent
 ):
-    teavent.shift_timings(now, [recurring_exception])
+    teavent.adjust_timings(now, [recurring_exception])
 
     assert teavent.start == datetime(2024, 8, 30, 21, 00, tzinfo=teavent.tz)
     assert teavent.start_poll_at == datetime(2024, 8, 30, 11, 00, tzinfo=teavent.tz)

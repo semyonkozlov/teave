@@ -107,16 +107,16 @@ class Teavent(TeaveModel):
     @property
     def start_poll_at(self) -> datetime:
         if self.config.start_poll_at is None:
-            return self._adjust(self.start - DEFAULT_START_POLL_DELTA)
+            return self._to_dt(self.start - DEFAULT_START_POLL_DELTA)
 
-        return self._adjust(self.config.start_poll_at)
+        return self._to_dt(self.config.start_poll_at)
 
     @property
     def stop_poll_at(self) -> datetime:
         if self.config.stop_poll_at is None:
-            return self._adjust(self.start - DEFAULT_STOP_POLL_DELTA)
+            return self._to_dt(self.start - DEFAULT_STOP_POLL_DELTA)
 
-        return self._adjust(self.config.stop_poll_at)
+        return self._to_dt(self.config.stop_poll_at)
 
     @property
     def tz(self):
@@ -126,7 +126,7 @@ class Teavent(TeaveModel):
     def duration(self) -> timedelta:
         return self.end - self.start
 
-    def _adjust(self, t: datetime | time):
+    def _to_dt(self, t: datetime | time) -> datetime:
         assert isinstance(t, (datetime, time)), f"unknown time type: {type(t)}"
 
         if isinstance(t, datetime):
@@ -144,7 +144,7 @@ class Teavent(TeaveModel):
             rr.rrule(rrulestr(r, dtstart=self.start))
         return rr
 
-    def shift_timings(self, now: datetime, recurring_exceptions: list["Teavent"]):
+    def adjust_timings(self, now: datetime, recurring_exceptions: list["Teavent"]):
         rr = self._rruleset()
         for t in recurring_exceptions:
             assert t.rrule is None

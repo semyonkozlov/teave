@@ -4,10 +4,7 @@ from datetime import datetime
 
 from common.executors import Executor, Task
 from common.models import Teavent
-from eventmanager.errors import (
-    TeaventIsInFinalState,
-    UnknownTeavent,
-)
+from eventmanager.errors import UnknownTeavent
 from eventmanager.flow import TeaventFlow
 from eventmanager.transitions_logger import TransitionsLogger
 
@@ -53,13 +50,7 @@ class TeaventManager:
         return sm
 
     def _manage(self, teavent: Teavent):
-        if teavent.is_reccurring:
-            # all recurring_exceptions must be managed
-            # TODO: handle recurring exceptions properly
-            teavent.shift_timings(
-                self._executor.now(teavent.tz),
-                self._get_recurring_exceptions(teavent.id),
-            )
+        assert teavent.id not in self._statemachines
 
         sm = TeaventFlow(
             model=teavent,
@@ -67,22 +58,13 @@ class TeaventManager:
             listeners=[*self._listeners, self, TransitionsLogger()],
         )
 
-        if sm.current_state.final:
-            raise TeaventIsInFinalState(teavent)
-
+        # all recurring_exceptions must be managed
+        # TODO: handle recurring exceptions properly
+        sm.init(
+            now=self._executor.now(teavent.tz),
+            recurring_exceptions=self._get_recurring_exceptions(teavent.id),
+        )
         self._statemachines[teavent.id] = sm
-        self._init(sm)
-
-    def _init(self, sm: TeaventFlow):
-        match sm.current_state:
-            case TeaventFlow.created:
-                self._schedule_start_poll(sm.teavent)
-            case TeaventFlow.poll_open:
-                self._schedule_stop_poll(sm.teavent)
-            case TeaventFlow.planned:
-                self._schedule_start(sm.teavent)
-            case TeaventFlow.started:
-                self._schedule_end(sm.teavent)
 
     def _teavent_sm(self, teavent_id: str) -> TeaventFlow:
         try:
@@ -142,8 +124,9 @@ class TeaventManager:
     def _recreate_or_finalize(self, model: Teavent):
         sm = self._teavent_sm(model.id)
         if model.is_reccurring:
-            sm.recreate(
-                now=self._executor.now(tz=model.tz),
+            sm.recreate()
+            sm.init(
+                now=model.end,  # allows correctly get next recurring instance
                 recurring_exceptions=self._get_recurring_exceptions(model.id),
             )
         else:

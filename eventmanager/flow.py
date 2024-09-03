@@ -4,6 +4,8 @@ from common.models import Teavent
 
 from statemachine import State, StateMachine
 
+from eventmanager.errors import TeaventIsInFinalState
+
 
 class TeaventFlow(StateMachine):
     # states
@@ -27,11 +29,24 @@ class TeaventFlow(StateMachine):
     end = started.to(ended)
     finalize = finalized.from_(cancelled, ended)
     recreate = created.from_(cancelled, ended)
+
+    init = created.to.itself() | poll_open.to.itself() | planned.to.itself() | started.to.itself() | cancelled.to.itself() | ended.to.itself()
+
     # fmt: on
 
     @property
     def teavent(self) -> Teavent:
         return self.model
+
+    @init.validators
+    def not_in_final_state(self, model: Teavent):
+        if self.current_state.final:
+            raise TeaventIsInFinalState(model)
+
+    @init.on
+    def adjust_timings(self, model: Teavent, now: datetime, recurring_exceptions: list):
+        if model.is_reccurring:
+            model.adjust_timings(now, recurring_exceptions)
 
     @confirm.on
     def add_participant(self, user_id: str, model: Teavent):
@@ -50,12 +65,6 @@ class TeaventFlow(StateMachine):
     def is_recurring(self, model: Teavent):
         if not model.is_reccurring:
             raise RuntimeError("Teavent must be recurring to recreate")
-
-    @recreate.on
-    def shift_timings(
-        self, model: Teavent, now: datetime, recurring_exceptions: list[Teavent]
-    ):
-        model.shift_timings(now, recurring_exceptions)
 
     @recreate.on
     def reset_participants(self, model: Teavent):

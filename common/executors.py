@@ -35,7 +35,9 @@ class Executor(ABC):
     @abstractmethod
     def now(self, tz=None) -> datetime: ...
 
-    def tasks(self, group_id: str) -> list:
+    def tasks(self, group_id: str | None = None) -> list[Task]:
+        if group_id is None:
+            return sum((self.tasks(gid) for gid in self._tasks), [])
         return list(self._tasks[group_id].values())
 
 
@@ -43,7 +45,7 @@ class Executor(ABC):
 class AsyncioExecutor(Executor):
     def schedule(self, task: Task, delay_seconds: int):
         if delay_seconds < 0:
-            raise RuntimeError(f"Negative delay for task {task.name}")
+            log.warning(f"Negative delay for task {task.name}")
 
         async def _task():
             at = datetime.now() + timedelta(seconds=delay_seconds)
