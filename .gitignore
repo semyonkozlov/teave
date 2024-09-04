@@ -162,6 +162,6 @@ cython_debug/
 #.idea/
  
 # Project specific
-TODO.txt
+TODO.md
 # TODO: use docker swarm
 telegrambridge/gcredentials.json

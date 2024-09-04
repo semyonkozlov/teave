@@ -8,6 +8,15 @@ from aiogram import F
 from aiogram.types import ReactionTypeEmoji
 from aiogram.filters import Command
 from aiogram.filters.command import CommandObject
+from aiogram.utils.formatting import (
+    as_list,
+    as_section,
+    as_key_value,
+    TextLink,
+    Bold,
+    Text,
+    Underline,
+)
 
 from common.errors import EventDescriptionParsingError
 from common.models import Teavent
@@ -39,7 +48,7 @@ async def handle_create_teavents_from_gcal_link(
     teavents_to_publish = []
     for item in gcal_events["items"]:
         if item["status"] == "cancelled":
-            # TODO
+            # TODO should not skip cancelled event as it could be cancelled recurring instance
             log.warning(f"Skip cancelled event: {item}")
             continue
 
@@ -111,15 +120,41 @@ async def handle_admin_actions(
     await _handle_user_actions(message, command, user_action)
 
 
+def _format_teavent(t: Teavent) -> Text:
+    # fmt: off
+    participants = as_list(*t.participant_ids) if t.participant_ids else ""
+
+    return as_section(
+        TextLink(t.summary, url=t.link),
+        as_list(
+            as_key_value("Статус", t.state),
+            as_key_value("Начало", t.start),
+            as_key_value("Продолжительность", t.duration),
+            as_key_value("Участники", participants),
+        )
+    )
+    # fmt: on
+
+
+def _format_teavents(teavents: list[Teavent]) -> Text:
+    # fmt: off
+    return as_section(
+        Bold(Underline("БЛИЖАЙШИЕ СОБЫТИЯ")),
+        "\n",
+        as_list(
+            *(_format_teavent(t) for t in teavents),
+            sep="\n\n",
+        )
+    )
+    # fmt: on
+
+
 @router.message(Command("teavents"))
 async def handle_command_teavents(
     message: aiogram.types.Message, list_teavents: Awaitable
 ):
-    text = "\n".join(
-        f"{t.id} state={t.state} participants={t.participant_ids}"
-        for t in await list_teavents()
-    )
-    await message.reply(text=(text or "no teavents"))
+    content = _format_teavents(await list_teavents())
+    await message.reply(**content.as_kwargs())
 
 
 @router.message()
