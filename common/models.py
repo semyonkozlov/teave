@@ -1,4 +1,5 @@
-from datetime import time, datetime, timedelta, date
+from base64 import b64encode
+from datetime import time, datetime, timedelta, date, timezone
 import logging
 import warnings
 
@@ -44,7 +45,7 @@ assert DEFAULT_STOP_POLL_DELTA < DEFAULT_START_POLL_DELTA
 
 class Teavent(TeaveModel):
     id: str
-    link: str
+    cal_id: str
 
     summary: str
     description: str
@@ -69,9 +70,10 @@ class Teavent(TeaveModel):
     ) -> "Teavent":
         _ = gcal_event_item
         description = _["description"].replace("\xa0", " ")
+
         return Teavent(
             id=_["id"],
-            link=_["htmlLink"],
+            cal_id=_calid_from_email(_["organizer"]["email"]),
             summary=_["summary"],
             description=description,
             location=_.get("location"),
@@ -82,6 +84,15 @@ class Teavent(TeaveModel):
             config=TeaventConfig.from_description(description),
             communication_ids=communication_ids,
         )
+
+    @property
+    def link(self) -> str:
+        # TODO: check non-recurring events
+
+        start = self.start.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        eid = f"{self.id}_{start} {self.cal_id}"
+        b64eid = b64encode(eid.encode()).rstrip(b"=").decode()
+        return f"https://www.google.com/calendar/event?eid={b64eid}"
 
     @property
     def num_participants(self) -> int:
@@ -144,7 +155,9 @@ class Teavent(TeaveModel):
             rr.rrule(rrulestr(r, dtstart=self.start))
         return rr
 
-    def adjust_timings(self, now: datetime, recurring_exceptions: list["Teavent"]):
+    def adjust(self, now: datetime, recurring_exceptions: list["Teavent"]):
+        assert self.is_reccurring
+
         rr = self._rruleset()
         for t in recurring_exceptions:
             assert t.rrule is None
@@ -182,3 +195,7 @@ class FlowUpdate(TeaveModel):
             type=type,
             data=data,
         )
+
+
+def _calid_from_email(email: str) -> str:
+    return email.split("@")[0] + "@g"

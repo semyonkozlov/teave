@@ -69,13 +69,6 @@ async def handle_create_teavents_from_gcal_link(
     await message.reply(text=f"Got {num} teavents:\n {links}")
 
 
-# TODO unused
-def from_eid(eid: str) -> str:
-    decoded = base64.b64decode(eid + "==").decode()
-    event_id, calendar_id = decoded.split(" ")
-    return event_id
-
-
 async def _handle_user_actions(
     message: aiogram.types.Message,
     command: CommandObject,

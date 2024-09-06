@@ -1,10 +1,9 @@
 from datetime import datetime
 
 from common.models import Teavent
+from eventmanager.errors import TeaventIsInFinalState
 
 from statemachine import State, StateMachine
-
-from eventmanager.errors import TeaventIsInFinalState
 
 
 class TeaventFlow(StateMachine):
@@ -46,7 +45,7 @@ class TeaventFlow(StateMachine):
     @init.on
     def adjust_timings(self, model: Teavent, now: datetime, recurring_exceptions: list):
         if model.is_reccurring:
-            model.adjust_timings(now, recurring_exceptions)
+            model.adjust(now, recurring_exceptions)
 
     @confirm.on
     def add_participant(self, user_id: str, model: Teavent):
