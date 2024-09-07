@@ -64,6 +64,8 @@ class Teavent(TeaveModel):
 
     communication_ids: list[str]
 
+    model_config = {"extra": "forbid"}
+
     @staticmethod
     def from_gcal_event(
         gcal_event_item: dict[str, str], communication_ids: list[str]
@@ -87,10 +89,13 @@ class Teavent(TeaveModel):
 
     @property
     def link(self) -> str:
-        # TODO: check non-recurring events
+        if self.is_reccurring:
+            start = self.start.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+            eid = f"{self.id}_{start} {self.cal_id}"
+        else:
+            # TODO: check non-recurring events
+            eid = f"{self.id} {self.cal_id}"
 
-        start = self.start.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-        eid = f"{self.id}_{start} {self.cal_id}"
         b64eid = b64encode(eid.encode()).rstrip(b"=").decode()
         return f"https://www.google.com/calendar/event?eid={b64eid}"
 
@@ -111,6 +116,10 @@ class Teavent(TeaveModel):
     @property
     def is_reccurring(self) -> bool:
         return bool(self.rrule)
+
+    @property
+    def is_recurring_exception(self) -> bool:
+        return bool(self.recurring_event_id)
 
     def confirmed_by(self, user_id: str) -> bool:
         return user_id in self.participant_ids

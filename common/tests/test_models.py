@@ -60,7 +60,7 @@ def test_rrule_simple(teavent: Teavent, now: datetime):
 def recurring_exception():
     return Teavent(
         id="2gud232jsatd8pmnu0mnng0if2_20240828T150000Z",
-        link="https://www.example.com",
+        cal_id="1b9c486302b14656cfb10dbdc28240b39054fc6b2c2060928c4c5d0aeccbb4a2@g",
         summary="Тренировка 2",
         description="Тренировка по настольному теннису",
         location="Arena 2, 2 University St, T'bilisi, Georgia",
