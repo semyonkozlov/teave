@@ -19,7 +19,7 @@ services:
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
-    container_name: 'rabbitmq'
+    container_name: rabbitmq
     ports:
       - 5672:5672
       - 15672:15672
@@ -30,6 +30,18 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
+  mongodb:
+      image: mongo:latest
+      container_name: mongodb
+      ports:
+        - 27017:27017
+      volumes:
+        - mongodb_data:/data/db
+      environment:
+        MONGO_INITDB_ROOT_USERNAME: admin
+        MONGO_INITDB_ROOT_PASSWORD: pass       
+
 
 volumes:
   rabbitmq_data:
+  mongodb_data:
