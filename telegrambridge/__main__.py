@@ -39,8 +39,10 @@ async def main():
         channel = await connection.channel()
         await channel.set_qos(prefetch_count=0)
 
-        teavents = await channel.declare_queue("teavents", durable=True)
-        outgoing_updates = await channel.declare_queue("outgoing_updates", durable=True)
+        teavents_q = await channel.declare_queue("teavents", durable=True)
+        outgoing_updates_q = await channel.declare_queue(
+            "outgoing_updates", durable=True
+        )
 
         # TODO: use pydantic_settings to configure
         bot = aiogram.Bot(token=os.getenv("TOKEN"))
@@ -50,7 +52,7 @@ async def main():
             await process_update(bot, FlowUpdate.from_message(message))
 
         logging.info("Register consumers")
-        await outgoing_updates.consume(on_outgoing_update, no_ack=True)
+        await outgoing_updates_q.consume(on_outgoing_update, no_ack=True)
 
         logging.info("Create RPC-client")
         rpc = await aio_pika.patterns.RPC.create(channel)
@@ -62,7 +64,7 @@ async def main():
         dp.include_router(handlers.router)
 
         logging.info("Init middlewares")
-        dp.message.middleware(QueueMiddleware(teavents))
+        dp.message.middleware(QueueMiddleware(teavents_q))
         dp.message.middleware(RpcMiddleware(rpc.proxy.list_teavents))
         dp.message.middleware(RpcMiddleware(rpc.proxy.user_action))
         dp.message.middleware(CalendarMiddleware(aiogoogle, calendar_api))

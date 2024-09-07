@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Any
-from collections.abc import Callable, Coroutine
+from collections.abc import Awaitable, Callable
 
 from attr import define
 
@@ -19,7 +19,7 @@ class Executor(ABC):
 
     @abstractmethod
     def schedule(
-        self, fn: Coroutine | Callable, name: str = None, delay_seconds: int = 0
+        self, fn: Awaitable | Callable, name: str = None, delay_seconds: int = 0
     ): ...
 
     @abstractmethod
@@ -34,7 +34,7 @@ class Executor(ABC):
         return list(self._tasks[group_id].values())
 
 
-async def _task(fn: Coroutine | Callable, name: str, delay_seconds: int):
+async def _task(fn: Awaitable | Callable, name: str, delay_seconds: int):
     at = datetime.now() + timedelta(seconds=delay_seconds)
     log.info(f"Schedule '{name}' to run in {delay_seconds} seconds (at {at} UTC)")
     await asyncio.sleep(delay_seconds)
@@ -48,7 +48,7 @@ async def _task(fn: Coroutine | Callable, name: str, delay_seconds: int):
 @define
 class AsyncioExecutor(Executor):
     def schedule(
-        self, fn: Coroutine | Callable, name: str = None, delay_seconds: int = 0
+        self, fn: Awaitable | Callable, name: str = None, delay_seconds: int = 0
     ):
         name = name or f"anon:{id(fn)}"
         group_id = name.split(":")[0]

@@ -24,3 +24,8 @@ class TeaventIsInFinalState(BadTeavent):
 class TeaventFromThePast(BadTeavent):
     def __init__(self, teavent: Teavent):
         super().__init__(f"Teavent is from the past: {teavent.start}", teavent=teavent)
+
+
+class TeaventIsManaged(BadTeavent):
+    def __init__(self, teavent: Teavent):
+        super().__init__(f"Teavent is already managed", teavent)

@@ -40,9 +40,7 @@ async def main():
         )
         await channel.set_qos(prefetch_size=0)
 
-        protocol = RmqProtocol(
-            teavents_q, outgoing_updates_q, channel, executor=executor
-        )
+        protocol = RmqProtocol(outgoing_updates_q, channel, executor=executor)
 
         logging.info("Init manager")
         manager = TeaventManager(executor=executor, listeners=[protocol, teavents_db])
@@ -69,7 +67,8 @@ async def main():
 
         logging.info("Register consumers")
 
-        async def on_teavent(message: aio_pika.abc.AbstractIncomingMessage):
+        @rethrow_exceptions_as(cls=RuntimeError)
+        def on_teavent(message: aio_pika.abc.AbstractIncomingMessage):
             manager.handle_teavent(Teavent.from_message(message))
 
         await teavents_q.consume(on_teavent, no_ack=True)

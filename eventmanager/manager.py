@@ -4,7 +4,7 @@ from datetime import datetime
 
 from common.executors import Executor
 from common.models import Teavent
-from eventmanager.errors import UnknownTeavent
+from eventmanager.errors import TeaventIsManaged, UnknownTeavent
 from eventmanager.flow import TeaventFlow
 from eventmanager.transitions_logger import TransitionsLogger
 
@@ -25,29 +25,17 @@ class TeaventManager:
     def list_teavents(self) -> list[Teavent]:
         return list(sm.teavent for sm in self._statemachines.values())
 
-    def handle_teavent(self, teavent: Teavent) -> Teavent | None:
-        log.info(
-            f"Handle teavent {teavent.id} state={teavent.state} delivery_tag={teavent._delivery_tag}"
-        )
+    def handle_teavent(self, teavent: Teavent):
+        log.info(f"Handle teavent {teavent.id} state={teavent.state}")
 
         if teavent.id not in self._statemachines:
             log.info(f"Got new teavent {teavent}")
             self._manage(teavent)
-            return
-
-        managed_teavent = self._teavent_sm(teavent.id).teavent
-
-        log.info(f"Teavent {teavent.id} is managed with state={managed_teavent.state}")
-        return managed_teavent
+        else:
+            raise TeaventIsManaged(teavent)
 
     def handle_user_action(self, type: str, user_id: str, teavent_id: str):
         return self._teavent_sm(teavent_id).send(type, user_id=user_id)
-
-    def drop(self, teavent_id: str):
-        sm = self._statemachines.pop(teavent_id)
-        if not sm.current_state.final:
-            raise RuntimeError("Attempt to drop teavent in non-final state")
-        return sm
 
     def _manage(self, teavent: Teavent):
         assert teavent.id not in self._statemachines
@@ -131,3 +119,7 @@ class TeaventManager:
             )
         else:
             sm.finalize()
+
+    @TeaventFlow.finalized.enter
+    def _drop(self, model: Teavent):
+        self._statemachines.pop(model.id)
