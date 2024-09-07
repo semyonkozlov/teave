@@ -44,7 +44,7 @@ assert DEFAULT_STOP_POLL_DELTA < DEFAULT_START_POLL_DELTA
 
 
 class Teavent(TeaveModel):
-    id: str
+    id: str = Field(alias="_id")
     cal_id: str
 
     summary: str
@@ -64,7 +64,7 @@ class Teavent(TeaveModel):
 
     communication_ids: list[str]
 
-    model_config = {"extra": "forbid"}
+    model_config = {"extra": "forbid", "populate_by_name": True}
 
     @staticmethod
     def from_gcal_event(

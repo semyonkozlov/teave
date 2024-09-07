@@ -2,7 +2,7 @@ import logging
 from collections.abc import Callable
 from datetime import datetime
 
-from common.executors import Executor, Task
+from common.executors import Executor
 from common.models import Teavent
 from eventmanager.errors import UnknownTeavent
 from eventmanager.flow import TeaventFlow
@@ -73,12 +73,12 @@ class TeaventManager:
             raise UnknownTeavent(teavent_id) from e
 
     def _schedule(self, trigger: Callable, teavent: Teavent, at: datetime):
-        task = Task(
-            fn=lambda: trigger(self._teavent_sm(teavent.id)),
-            name=f"{teavent.id}:{trigger.name}",
-        )
         delay = (at - self._executor.now(tz=at.tzinfo)).total_seconds()
-        self._executor.schedule(task, delay_seconds=delay)
+        self._executor.schedule(
+            lambda: trigger(self._teavent_sm(teavent.id)),
+            name=f"{teavent.id}:{trigger.name}",
+            delay_seconds=delay,
+        )
 
     def _get_recurring_exceptions(self, recurring_teavent_id: str) -> list[Teavent]:
         return [

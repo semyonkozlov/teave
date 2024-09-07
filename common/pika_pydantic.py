@@ -8,7 +8,7 @@ import pydantic
 class ModelMessage(aio_pika.Message):
     def __init__(self, model: pydantic.BaseModel):
         super().__init__(
-            model.model_dump_json().encode(),
+            model.model_dump_json(by_alias=True).encode(),
             delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
         )
 

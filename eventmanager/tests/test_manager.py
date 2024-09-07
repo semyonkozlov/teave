@@ -1,8 +1,10 @@
+from collections.abc import Callable
 from datetime import datetime
 
+from attr import define
 import pytest
 
-from common.executors import Executor, Task
+from common.executors import Executor
 from common.models import Teavent
 from eventmanager.manager import TeaventManager
 
@@ -11,9 +13,19 @@ class NoTasks(Exception):
     "No tasks to execute"
 
 
+@define
+class Task:
+    fn: Callable
+    name: str
+
+    @property
+    def group_id(self) -> str:
+        return self.name.split(":")[0]
+
+
 class FakeExecutor(Executor):
-    def schedule(self, task: Task, delay_seconds: int):
-        self._tasks[task.group_id][task.name] = task
+    def schedule(self, fn, name: str, delay_seconds: int):
+        self._tasks[name] = Task(fn, name)
 
     def cancel(self, group_id: str):
         pass
@@ -27,7 +39,10 @@ class FakeExecutor(Executor):
 
         for t in tasks:
             t.fn()
-            self._tasks[t.group_id].pop(t.name)
+            self._tasks.pop(t.name)
+
+    def tasks(self):
+        return list(self._tasks.values())
 
 
 @pytest.fixture
