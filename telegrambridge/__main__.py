@@ -7,12 +7,27 @@ import aio_pika
 
 from common.models import FlowUpdate
 import telegrambridge.handlers as handlers
+from telegrambridge.keyboards import get_regpoll_keyboard
 from telegrambridge.middlewares import (
     CalendarMiddleware,
     QueueMiddleware,
     RpcMiddleware,
     init_aiogoogle,
 )
+
+
+async def process_update(bot: aiogram.Bot, update: FlowUpdate):
+    match update.type:
+        case "Poll open":
+            for chat_id in update.communication_ids:
+                await bot.send_message(
+                    chat_id=chat_id,
+                    text=update.type,
+                    reply_markup=get_regpoll_keyboard(),
+                )
+        case _:
+            for chat_id in update.communication_ids:
+                await bot.send_message(chat_id=chat_id, text=update.type)
 
 
 async def main():
@@ -32,9 +47,7 @@ async def main():
         dp = aiogram.Dispatcher()
 
         async def on_outgoing_update(message: aio_pika.abc.AbstractIncomingMessage):
-            update = FlowUpdate.from_message(message)
-            for chat_id in update.communication_ids:
-                await bot.send_message(chat_id=chat_id, text=update.type)
+            await process_update(bot, FlowUpdate.from_message(message))
 
         logging.info("Register consumers")
         await outgoing_updates.consume(on_outgoing_update, no_ack=True)
