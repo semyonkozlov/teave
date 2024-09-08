@@ -18,9 +18,7 @@ class Executor(ABC):
     _tasks: dict[str, dict[str, Any]] = defaultdict(dict)
 
     @abstractmethod
-    def schedule(
-        self, fn: Awaitable | Callable, name: str = None, delay_seconds: int = 0
-    ): ...
+    def schedule(self, fn, name: str = None, delay_seconds: int = 0): ...
 
     @abstractmethod
     def cancel(self, group_id: str): ...

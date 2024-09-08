@@ -30,7 +30,6 @@ class TeaventFlow(StateMachine):
     recreate = created.from_(cancelled, ended)
 
     init = created.to.itself() | poll_open.to.itself() | planned.to.itself() | started.to.itself() | cancelled.to.itself() | ended.to.itself()
-
     # fmt: on
 
     @property

@@ -18,10 +18,6 @@ class Task:
     fn: Callable
     name: str
 
-    @property
-    def group_id(self) -> str:
-        return self.name.split(":")[0]
-
 
 class FakeExecutor(Executor):
     def schedule(self, fn, name: str, delay_seconds: int):

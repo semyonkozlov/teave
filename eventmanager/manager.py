@@ -26,10 +26,9 @@ class TeaventManager:
         return list(sm.teavent for sm in self._statemachines.values())
 
     def handle_teavent(self, teavent: Teavent):
-        log.info(f"Handle teavent {teavent.id} state={teavent.state}")
+        log.info(f"Handle teavent {teavent}")
 
         if teavent.id not in self._statemachines:
-            log.info(f"Got new teavent {teavent}")
             self._manage(teavent)
         else:
             raise TeaventIsManaged(teavent)

@@ -33,7 +33,7 @@ async def process_update(bot: aiogram.Bot, update: FlowUpdate):
 async def main():
     logging.basicConfig(level=logging.INFO)
 
-    connection = await aio_pika.connect("amqp://guest:guest@rabbitmq/")
+    connection = await aio_pika.connect("amqp://guest:guest@rabbitmq")
     aiogoogle = init_aiogoogle()
     async with connection, aiogoogle:
         channel = await connection.channel()

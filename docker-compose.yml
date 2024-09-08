@@ -30,6 +30,7 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
+      
   mongodb:
       image: mongo:latest
       container_name: mongodb
