@@ -15,7 +15,7 @@ log = logging.getLogger(__name__)
 
 @define
 class Executor(ABC):
-    _tasks: dict[str, dict[str, Any]] = defaultdict(dict)
+    _tasks: dict[str, set] = defaultdict(set)
 
     @abstractmethod
     def schedule(self, fn, name: str = None, delay_seconds: int = 0): ...
@@ -35,7 +35,9 @@ class Executor(ABC):
 async def _task(fn: Awaitable | Callable, name: str, delay_seconds: int):
     at = datetime.now() + timedelta(seconds=delay_seconds)
     log.info(f"Schedule '{name}' to run in {delay_seconds} seconds (at {at} UTC)")
-    await asyncio.sleep(delay_seconds)
+
+    if delay_seconds > 0:
+        await asyncio.sleep(delay_seconds)
 
     if inspect.isawaitable(fn):
         await fn
@@ -48,18 +50,21 @@ class AsyncioExecutor(Executor):
     def schedule(
         self, fn: Awaitable | Callable, name: str = None, delay_seconds: int = 0
     ):
-        name = name or f"anon:{id(fn)}"
-        group_id = name.split(":")[0]
-
         if delay_seconds < 0:
             log.warning(f"Negative delay for task {name}")
 
-        grouped_tasks = self._tasks[group_id]
         asynciotask = asyncio.create_task(_task(fn, name, delay_seconds), name=name)
-        grouped_tasks[name] = asynciotask
+
+        name = name or f"anon:{id(fn)}"
+        group_id = name.split(":")[0]
+
+        task_group = self._tasks[group_id]
+
+        assert name not in task_group
+        task_group.add(asynciotask)
 
         def _on_task_done(t: asyncio.Task):
-            grouped_tasks.pop(t.get_name())
+            task_group.discard(t)
 
         asynciotask.add_done_callback(_on_task_done)
 
