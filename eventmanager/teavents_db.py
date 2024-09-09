@@ -19,7 +19,9 @@ class TeaventsDB:
 
     def after_transition(self, model: Teavent):
         self._executor.schedule(
-            self._storage.replace_one({}, model.model_dump(mode="json", by_alias=True)),
+            self._storage.replace_one(
+                {}, model.model_dump(mode="json", by_alias=True), upsert=True
+            ),
             name=f"{model.id}:dbupdate",
         )
 
