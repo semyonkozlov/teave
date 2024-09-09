@@ -1,5 +1,5 @@
 import base64
-from collections.abc import Awaitable
+from collections.abc import Coroutine
 import logging
 import re
 
@@ -21,6 +21,7 @@ from aiogram.utils.formatting import (
 from common.errors import EventDescriptionParsingError
 from common.models import Teavent
 from telegrambridge.filters import IsAdmin
+from telegrambridge.keyboards import RegPollAction
 from telegrambridge.middlewares import (
     CalendarMiddleware,
     QueueMiddleware,
@@ -72,7 +73,7 @@ async def handle_create_teavents_from_gcal_link(
 async def _handle_user_actions(
     message: aiogram.types.Message,
     command: CommandObject,
-    user_action: Awaitable,
+    user_action: Coroutine,
 ):
     try:
         reply = await user_action(
@@ -95,7 +96,7 @@ async def _handle_user_actions(
 async def handle_user_actions(
     message: aiogram.types.Message,
     command: CommandObject,
-    user_action: Awaitable,
+    user_action: Coroutine,
 ):
     await _handle_user_actions(message, command, user_action)
 
@@ -108,7 +109,7 @@ async def handle_user_actions(
 async def handle_admin_actions(
     message: aiogram.types.Message,
     command: CommandObject,
-    user_action: Awaitable,
+    user_action: Coroutine,
 ):
     await _handle_user_actions(message, command, user_action)
 
@@ -144,10 +145,24 @@ def _format_teavents(teavents: list[Teavent]) -> Text:
 
 @router.message(Command("teavents"))
 async def handle_command_teavents(
-    message: aiogram.types.Message, list_teavents: Awaitable
+    message: aiogram.types.Message, list_teavents: Coroutine
 ):
     content = _format_teavents(await list_teavents())
     await message.reply(**content.as_kwargs())
+
+
+@router.callback_query(RegPollAction.filter())
+async def handle_reg_poll_action(
+    callback: aiogram.types.CallbackQuery,
+    callback_data: RegPollAction,
+    user_action: Coroutine,
+):
+    await user_action(
+        type=callback_data.action,
+        user_id=str(callback.from_user.id),
+        teavent_id=callback_data.teavent_id,
+    )
+    await callback.answer()
 
 
 @router.message()

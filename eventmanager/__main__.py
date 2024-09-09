@@ -24,10 +24,9 @@ def rethrow_exceptions_as(f, cls=RuntimeError, *args, **kwargs):
 async def main():
     logging.basicConfig(level=logging.INFO)
 
-    connection = await aio_pika.connect("amqp://guest:guest@rabbitmq")
-
     executor = AsyncioExecutor()
 
+    connection = await aio_pika.connect("amqp://guest:guest@rabbitmq")
     mongoc = aio_mongo.AsyncIOMotorClient("mongodb://admin:pass@mongodb")
     teavents_db = TeaventsDB(mongoc.manager_db.teavents, executor=executor)
 

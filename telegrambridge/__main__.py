@@ -3,9 +3,10 @@ import logging
 import os
 
 import aiogram
+import motor.motor_asyncio as aio_mongo
 import aio_pika
 
-from common.models import FlowUpdate
+from common.models import FlowUpdate, Teavent
 import telegrambridge.handlers as handlers
 from telegrambridge.keyboards import get_regpoll_keyboard
 from telegrambridge.middlewares import (
@@ -16,27 +17,27 @@ from telegrambridge.middlewares import (
 )
 
 
-async def process_update(bot: aiogram.Bot, update: FlowUpdate):
-    match update.type:
-        case "Poll open":
-            for chat_id in update.communication_ids:
+async def process_teavent_update(teavent: Teavent, bot: aiogram.Bot):
+    match teavent.state:
+        case "poll_open":
+            for chat_id in teavent.communication_ids:
                 await bot.send_message(
                     chat_id=chat_id,
-                    text=update.type,
-                    reply_markup=get_regpoll_keyboard(),
+                    text=teavent.state,
+                    reply_markup=get_regpoll_keyboard(teavent.id),
                 )
-        case _:
-            for chat_id in update.communication_ids:
-                await bot.send_message(chat_id=chat_id, text=update.type)
+            ...
 
 
 async def main():
     logging.basicConfig(level=logging.INFO)
 
-    connection = await aio_pika.connect("amqp://guest:guest@rabbitmq")
+    rmq_connection = await aio_pika.connect("amqp://guest:guest@rabbitmq")
+    mongoc = aio_mongo.AsyncIOMotorClient("mongodb://admin:pass@mongodb")
     aiogoogle = init_aiogoogle()
-    async with connection, aiogoogle:
-        channel = await connection.channel()
+
+    async with rmq_connection, aiogoogle:
+        channel = await rmq_connection.channel()
         await channel.set_qos(prefetch_count=0)
 
         teavents_q = await channel.declare_queue("teavents", durable=True)
@@ -48,11 +49,11 @@ async def main():
         bot = aiogram.Bot(token=os.getenv("TOKEN"))
         dp = aiogram.Dispatcher()
 
-        async def on_outgoing_update(message: aio_pika.abc.AbstractIncomingMessage):
-            await process_update(bot, FlowUpdate.from_message(message))
+        async def on_teavent_update(message: aio_pika.abc.AbstractIncomingMessage):
+            await process_teavent_update(Teavent.from_message(message), bot)
 
         logging.info("Register consumers")
-        await outgoing_updates_q.consume(on_outgoing_update, no_ack=True)
+        await outgoing_updates_q.consume(on_teavent_update, no_ack=True)
 
         logging.info("Create RPC-client")
         rpc = await aio_pika.patterns.RPC.create(channel)
@@ -68,6 +69,8 @@ async def main():
         dp.message.middleware(RpcMiddleware(rpc.proxy.list_teavents))
         dp.message.middleware(RpcMiddleware(rpc.proxy.user_action))
         dp.message.middleware(CalendarMiddleware(aiogoogle, calendar_api))
+
+        dp.callback_query.middleware(RpcMiddleware(rpc.proxy.user_action))
 
         await bot.delete_webhook(drop_pending_updates=True)
         await dp.start_polling(bot)

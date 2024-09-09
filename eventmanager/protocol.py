@@ -1,5 +1,3 @@
-import asyncio
-from collections.abc import Coroutine
 import logging
 
 import aio_pika
@@ -7,7 +5,7 @@ from attr import define
 from statemachine import State
 
 from common.executors import Executor
-from common.models import FlowUpdate, Teavent
+from common.models import Teavent
 from common.pika_pydantic import ModelMessage
 
 log = logging.getLogger(__name__)
@@ -20,9 +18,9 @@ class RmqProtocol:
 
     _executor: Executor
 
-    async def _publish_update(self, outgoing_update: FlowUpdate):
+    async def _publish_update(self, teavent: Teavent):
         await self._channel.default_exchange.publish(
-            ModelMessage(outgoing_update),
+            ModelMessage(teavent),
             routing_key=self._outgoing_updates_queue.name,
         )
 
@@ -30,6 +28,6 @@ class RmqProtocol:
 
     def on_enter_state(self, state: State, model: Teavent):
         self._executor.schedule(
-            self._publish_update(FlowUpdate.for_teavent(model, type=state.name)),
+            self._publish_update(model.model_copy()),
             name=f"{model.id}:pub_{state.value}",
         )

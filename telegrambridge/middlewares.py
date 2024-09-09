@@ -1,4 +1,4 @@
-from collections.abc import Awaitable
+from collections.abc import Coroutine
 import json
 import datetime
 from datetime import datetime
@@ -30,7 +30,7 @@ class QueueMiddleware(aiogram.BaseMiddleware):
 
 @define
 class RpcMiddleware(aiogram.BaseMiddleware):
-    _method: Awaitable
+    _method: Coroutine
 
     async def __call__(self, handler, event: aiogram.types.Message, data: dict):
         data[self._method.name] = self._method
