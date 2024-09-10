@@ -8,25 +8,13 @@ from aiogram import F
 from aiogram.types import ReactionTypeEmoji
 from aiogram.filters import Command
 from aiogram.filters.command import CommandObject
-from aiogram.utils.formatting import (
-    as_list,
-    as_section,
-    as_key_value,
-    TextLink,
-    Bold,
-    Text,
-    Underline,
-)
 
 from common.errors import EventDescriptionParsingError
 from common.models import Teavent
 from telegrambridge.filters import IsAdmin
 from telegrambridge.keyboards import RegPollAction
-from telegrambridge.middlewares import (
-    CalendarMiddleware,
-    RmqMiddleware,
-)
-from telegrambridge.views import TgStateViewFactory
+from telegrambridge.middlewares import CalendarMiddleware, RmqMiddleware
+from telegrambridge.views import TgStateViewFactory, render_teavents
 
 
 log = logging.getLogger(__name__)
@@ -110,40 +98,11 @@ async def handle_admin_actions(
     await _handle_user_actions(message, command, user_action)
 
 
-def _format_teavent(t: Teavent) -> Text:
-    # fmt: off
-    participants = as_list(*t.participant_ids) if t.participant_ids else ""
-
-    return as_section(
-        TextLink(t.summary, url=t.link),
-        as_list(
-            as_key_value("Статус", t.state),
-            as_key_value("Начало", t.start),
-            as_key_value("Продолжительность", t.duration),
-            as_key_value("Участники", participants),
-        )
-    )
-    # fmt: on
-
-
-def _format_teavents(teavents: list[Teavent]) -> Text:
-    # fmt: off
-    return as_section(
-        Bold(Underline("БЛИЖАЙШИЕ СОБЫТИЯ")),
-        "\n",
-        as_list(
-            *(_format_teavent(t) for t in teavents),
-            sep="\n\n",
-        )
-    )
-    # fmt: on
-
-
 @router.message(Command("teavents"))
 async def handle_command_teavents(
     message: aiogram.types.Message, list_teavents: Coroutine
 ):
-    content = _format_teavents(await list_teavents())
+    content = render_teavents(await list_teavents())
     await message.reply(**content.as_kwargs())
 
 

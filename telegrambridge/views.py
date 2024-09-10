@@ -3,7 +3,16 @@ from contextlib import suppress
 
 import aiogram
 from aiogram.exceptions import TelegramBadRequest
-from aiogram.utils.formatting import Text
+from aiogram.utils.formatting import (
+    as_list,
+    as_section,
+    as_key_value,
+    TextLink,
+    Bold,
+    Text,
+    Underline,
+)
+
 from attr import define
 
 from common.models import Teavent
@@ -55,3 +64,32 @@ class TgStateViewFactory:
 
     def create_view(self, state: str) -> TgStateView:
         return self._state_to_view[state](self._bot)
+
+
+def render_teavent(t: Teavent) -> Text:
+    participants = as_list(*t.participant_ids) if t.participant_ids else ""
+
+    # fmt: off
+    return as_section(
+        TextLink(t.summary, url=t.link),
+        as_list(
+            as_key_value("Статус", t.state),
+            as_key_value("Начало", t.start),
+            as_key_value("Продолжительность", t.duration),
+            as_key_value("Участники", participants),
+        )
+    )
+    # fmt: on
+
+
+def render_teavents(teavents: list[Teavent]) -> Text:
+    # fmt: off
+    return as_section(
+        Bold(Underline("БЛИЖАЙШИЕ СОБЫТИЯ")),
+        "\n",
+        as_list(
+            *(render_teavent(t) for t in teavents),
+            sep="\n\n",
+        )
+    )
+    # fmt: on
