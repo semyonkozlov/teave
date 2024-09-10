@@ -7,6 +7,7 @@ from aiogram.utils.formatting import (
     as_list,
     as_section,
     as_key_value,
+    as_marked_section,
     TextLink,
     Bold,
     Text,
@@ -47,7 +48,24 @@ class TgStateView(ABC):
 
 class RegPollView(TgStateView):
     def text(self, teavent: Teavent) -> Text:
-        return Text(teavent.state)
+        t = teavent
+        participants = t.participant_ids or ["~"]
+
+        # fmt: off
+        return as_section(
+            Bold("ЗАПИСЬ НА СОБЫТИЕ ", TextLink(t.summary, url=t.link)),
+            "\n",
+            as_list(
+                as_key_value("Место", t.location),
+                as_key_value("Начало", t.start),
+                as_key_value("Продолжительность", t.duration),
+                as_marked_section(
+                    f"Участники ({t.num_participants}/{t.config.max}):", 
+                    *participants, 
+                    marker="  "),
+            )
+        )
+        # fmt: on
 
     def keyboard(self, teavent: Teavent):
         return make_regpoll_keyboard(teavent.id)
@@ -66,7 +84,7 @@ class TgStateViewFactory:
         return self._state_to_view[state](self._bot)
 
 
-def render_teavent(t: Teavent) -> Text:
+def _render_teavent(t: Teavent) -> Text:
     participants = as_list(*t.participant_ids) if t.participant_ids else ""
 
     # fmt: off
@@ -88,7 +106,7 @@ def render_teavents(teavents: list[Teavent]) -> Text:
         Bold(Underline("БЛИЖАЙШИЕ СОБЫТИЯ")),
         "\n",
         as_list(
-            *(render_teavent(t) for t in teavents),
+            *(_render_teavent(t) for t in teavents),
             sep="\n\n",
         )
     )

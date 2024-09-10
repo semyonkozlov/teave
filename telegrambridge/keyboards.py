@@ -10,11 +10,11 @@ class RegPollAction(CallbackData, prefix="reg_poll"):
 def make_regpoll_keyboard(teavent_id: str):
     builder = InlineKeyboardBuilder()
     builder.button(
-        text="Confirm",
+        text="Участвую",
         callback_data=RegPollAction(action="confirm", teavent_id=teavent_id),
     )
     builder.button(
-        text="Reject",
+        text="Не участвую",
         callback_data=RegPollAction(action="reject", teavent_id=teavent_id),
     )
     builder.adjust(2)

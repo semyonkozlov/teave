@@ -116,7 +116,7 @@ async def handle_reg_poll_action(
     try:
         updated_teavent = await user_action(
             type=callback_data.action,
-            user_id=str(callback.from_user.id),
+            user_id=f"@{callback.from_user.username}",
             teavent_id=callback_data.teavent_id,
         )
     except Exception as e:
