@@ -24,8 +24,9 @@ from telegrambridge.filters import IsAdmin
 from telegrambridge.keyboards import RegPollAction
 from telegrambridge.middlewares import (
     CalendarMiddleware,
-    QueueMiddleware,
+    RmqMiddleware,
 )
+from telegrambridge.views import TgStateViewFactory
 
 
 log = logging.getLogger(__name__)
@@ -38,7 +39,7 @@ gcal_link = re.compile(r"https://calendar\.google\.com/calendar/u/0\?cid=(.*)")
 async def handle_create_teavents_from_gcal_link(
     message: aiogram.types.Message,
     calendar: CalendarMiddleware,
-    teavents: QueueMiddleware,
+    teavents: RmqMiddleware,
     match: re.Match[str],
 ):
     calendar_id = base64.b64decode(match.group(1)).decode()
@@ -76,20 +77,15 @@ async def _handle_user_actions(
     user_action: Coroutine,
 ):
     try:
-        reply = await user_action(
+        await user_action(
             type=command.command,
             user_id=str(message.from_user.id),
             teavent_id=command.args,
         )
+        await message.react([ReactionTypeEmoji(emoji="👍")])
     except Exception as e:
         await message.react([ReactionTypeEmoji(emoji="👨‍💻")])
         await message.reply(text=str(e))
-        return
-
-    if reply is None:
-        await message.react([ReactionTypeEmoji(emoji="👍")])
-    else:
-        await message.reply(text=str(reply))
 
 
 @router.message(Command(commands=["confirm", "reject"]))
@@ -156,13 +152,25 @@ async def handle_reg_poll_action(
     callback: aiogram.types.CallbackQuery,
     callback_data: RegPollAction,
     user_action: Coroutine,
+    view_factory: TgStateViewFactory,
 ):
-    await user_action(
-        type=callback_data.action,
-        user_id=str(callback.from_user.id),
-        teavent_id=callback_data.teavent_id,
+    try:
+        updated_teavent = await user_action(
+            type=callback_data.action,
+            user_id=str(callback.from_user.id),
+            teavent_id=callback_data.teavent_id,
+        )
+    except Exception as e:
+        return await callback.answer(str(e), show_alert=True)
+
+    view = view_factory.create_view("poll_open")
+
+    await view.update(
+        callback.message,
+        teavent=updated_teavent,
     )
-    await callback.answer()
+
+    return await callback.answer()
 
 
 @router.message()

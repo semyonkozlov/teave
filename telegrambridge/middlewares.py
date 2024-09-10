@@ -14,7 +14,7 @@ from common.pika_pydantic import ModelMessage
 
 
 @define
-class QueueMiddleware(aiogram.BaseMiddleware):
+class RmqMiddleware(aiogram.BaseMiddleware):
     _queue: aio_pika.abc.AbstractQueue
 
     async def __call__(self, handler, event: aiogram.types.Message, data: dict):
@@ -26,15 +26,6 @@ class QueueMiddleware(aiogram.BaseMiddleware):
             ModelMessage(msg),
             routing_key=self._queue.name,
         )
-
-
-@define
-class RpcMiddleware(aiogram.BaseMiddleware):
-    _method: Coroutine
-
-    async def __call__(self, handler, event: aiogram.types.Message, data: dict):
-        data[self._method.name] = self._method
-        return await handler(event, data)
 
 
 def init_aiogoogle() -> Aiogoogle:

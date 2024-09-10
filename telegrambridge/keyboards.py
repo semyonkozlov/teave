@@ -7,7 +7,7 @@ class RegPollAction(CallbackData, prefix="reg_poll"):
     teavent_id: str
 
 
-def get_regpoll_keyboard(teavent_id: str):
+def make_regpoll_keyboard(teavent_id: str):
     builder = InlineKeyboardBuilder()
     builder.button(
         text="Confirm",

@@ -28,7 +28,7 @@ async def main():
 
     connection = await aio_pika.connect("amqp://guest:guest@rabbitmq")
     mongoc = aio_mongo.AsyncIOMotorClient("mongodb://admin:pass@mongodb")
-    teavents_db = TeaventsDB(mongoc.manager_db.teavents, executor=executor)
+    teavents_db = TeaventsDB(mongoc.eventmanager.teavents, executor=executor)
 
     async with connection:
         channel = await connection.channel()

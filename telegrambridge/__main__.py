@@ -3,37 +3,22 @@ import logging
 import os
 
 import aiogram
-import motor.motor_asyncio as aio_mongo
 import aio_pika
 
-from common.models import FlowUpdate, Teavent
+from common.models import Teavent
 import telegrambridge.handlers as handlers
-from telegrambridge.keyboards import get_regpoll_keyboard
 from telegrambridge.middlewares import (
     CalendarMiddleware,
-    QueueMiddleware,
-    RpcMiddleware,
+    RmqMiddleware,
     init_aiogoogle,
 )
-
-
-async def process_teavent_update(teavent: Teavent, bot: aiogram.Bot):
-    match teavent.state:
-        case "poll_open":
-            for chat_id in teavent.communication_ids:
-                await bot.send_message(
-                    chat_id=chat_id,
-                    text=teavent.state,
-                    reply_markup=get_regpoll_keyboard(teavent.id),
-                )
-            ...
+from telegrambridge.views import TgStateViewFactory
 
 
 async def main():
     logging.basicConfig(level=logging.INFO)
 
     rmq_connection = await aio_pika.connect("amqp://guest:guest@rabbitmq")
-    mongoc = aio_mongo.AsyncIOMotorClient("mongodb://admin:pass@mongodb")
     aiogoogle = init_aiogoogle()
 
     async with rmq_connection, aiogoogle:
@@ -47,10 +32,14 @@ async def main():
 
         # TODO: use pydantic_settings to configure
         bot = aiogram.Bot(token=os.getenv("TOKEN"))
-        dp = aiogram.Dispatcher()
+
+        logging.info("Init views")
+        view_factory = TgStateViewFactory(bot)
 
         async def on_teavent_update(message: aio_pika.abc.AbstractIncomingMessage):
-            await process_teavent_update(Teavent.from_message(message), bot)
+            teavent = Teavent.from_message(message)
+            view = view_factory.create_view(teavent.state)
+            await view.show(teavent)
 
         logging.info("Register consumers")
         await outgoing_updates_q.consume(on_teavent_update, no_ack=True)
@@ -61,16 +50,18 @@ async def main():
         logging.info("Discover Google Calendar API")
         calendar_api = await aiogoogle.discover("calendar", "v3")
 
+        dp = aiogram.Dispatcher(
+            view_factory=view_factory,
+            user_action=rpc.proxy.user_action,
+            list_teavents=rpc.proxy.list_teavents,
+        )
+
         logging.info("Set up bot handlers")
         dp.include_router(handlers.router)
 
         logging.info("Init middlewares")
-        dp.message.middleware(QueueMiddleware(teavents_q))
-        dp.message.middleware(RpcMiddleware(rpc.proxy.list_teavents))
-        dp.message.middleware(RpcMiddleware(rpc.proxy.user_action))
+        dp.message.middleware(RmqMiddleware(teavents_q))
         dp.message.middleware(CalendarMiddleware(aiogoogle, calendar_api))
-
-        dp.callback_query.middleware(RpcMiddleware(rpc.proxy.user_action))
 
         await bot.delete_webhook(drop_pending_updates=True)
         await dp.start_polling(bot)

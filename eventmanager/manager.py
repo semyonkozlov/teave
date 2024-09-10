@@ -34,7 +34,9 @@ class TeaventManager:
             raise TeaventIsManaged(teavent)
 
     def handle_user_action(self, type: str, user_id: str, teavent_id: str):
-        return self._teavent_sm(teavent_id).send(type, user_id=user_id)
+        sm = self._teavent_sm(teavent_id)
+        sm.send(type, user_id=user_id)
+        return sm.teavent
 
     def _manage(self, teavent: Teavent):
         assert teavent.id not in self._statemachines
