@@ -20,8 +20,8 @@ class TeaventFlow(StateMachine):
     # transitions
     # fmt: off
     start_poll = created.to(poll_open)
-    confirm = poll_open.to(planned, cond="packed") | poll_open.to(poll_open) | planned.to(planned, unless="packed")
-    reject = planned.to(planned) | poll_open.to(poll_open)
+    confirm = poll_open.to(planned, cond="packed") | poll_open.to.itself(internal=True) | planned.to.itself(unless="packed", internal=True)
+    reject = planned.to.itself(internal=True) | poll_open.to.itself(internal=True)
     stop_poll = poll_open.to(planned, cond="ready") | poll_open.to(cancelled, unless="ready")
     cancel = cancelled.from_(poll_open, planned)
     start_ = planned.to(started)
@@ -50,14 +50,19 @@ class TeaventFlow(StateMachine):
     def add_participant(self, user_id: str, model: Teavent):
         model.participant_ids.append(user_id)
 
-    @reject.on
-    def remove_participant(self, user_id: str, model: Teavent):
-        model.participant_ids.remove(user_id)
-
     @confirm.validators
     def not_confirmed_before(self, user_id: str, model: Teavent):
         if model.confirmed_by(user_id):
             raise RuntimeError("Already confirmed")
+
+    @reject.validators
+    def confirmed_before(self, user_id: str, model: Teavent):
+        if not model.confirmed_by(user_id):
+            raise RuntimeError("Not confirmed")
+
+    @reject.on
+    def remove_participant(self, user_id: str, model: Teavent):
+        model.participant_ids.remove(user_id)
 
     @recreate.validators
     def is_recurring(self, model: Teavent):

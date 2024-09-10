@@ -49,7 +49,8 @@ async def main():
         logging.info("Register RPC")
 
         rpc = await RPC.create(channel)
-        rpc.host_exceptions = True
+        # to view tracebacks of RPC-calls
+        # rpc.host_exceptions = True
 
         async def list_teavents() -> list[Teavent]:
             return manager.list_teavents()
