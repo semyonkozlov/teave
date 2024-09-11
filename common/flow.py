@@ -41,16 +41,17 @@ class TeaventFlow(StateMachine):
         if not model.has_reserve():
             raise RuntimeError("No reserve")
 
-    @init.validators
-    def not_in_final_state(self, model: Teavent):
-        if self.current_state.final:
-            raise TeaventIsInFinalState(model)
-
     @i_am_late.on
     def add_latee(self, user_id: str, model: Teavent):
         if user_id not in model.latees:
             model.latees.append(user_id)
 
+    @init.validators
+    def not_in_final_state(self, model: Teavent):
+        if self.current_state.final:
+            raise TeaventIsInFinalState(model)
+
+    @recreate.on
     @init.on
     def adjust_timings(self, model: Teavent, now: datetime, recurring_exceptions: list):
         if model.is_reccurring:

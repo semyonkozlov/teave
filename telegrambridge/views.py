@@ -34,15 +34,16 @@ class TgStateView(ABC):
         for chat_id in teavent.communication_ids:
             await self._bot.send_message(
                 chat_id=chat_id,
-                **self.text(teavent).as_kwargs(),
+                # the order of following parameters MATTERS
                 reply_markup=self.keyboard(teavent),
+                **self.text(teavent).as_kwargs(),
             )
 
     async def update(self, message: aiogram.types.Message, teavent: Teavent):
         with suppress(TelegramBadRequest):
             await message.edit_text(
-                **self.text(teavent).as_kwargs(),
                 reply_markup=self.keyboard(teavent),
+                **self.text(teavent).as_kwargs(),
             )
 
     @abstractmethod
