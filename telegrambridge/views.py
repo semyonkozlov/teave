@@ -16,6 +16,7 @@ from aiogram.utils.formatting import (
 
 from attr import define
 
+from common.flow import TeaventFlow
 from common.models import Teavent
 from telegrambridge.keyboards import make_regpoll_keyboard
 
@@ -40,15 +41,14 @@ class TgStateView(ABC):
             )
 
     @abstractmethod
-    def text(self, teavent: Teavent) -> Text: ...
+    def text(self, t: Teavent) -> Text: ...
 
     @abstractmethod
-    def keyboard(self, teavent: Teavent): ...
+    def keyboard(self, t: Teavent): ...
 
 
 class RegPollView(TgStateView):
-    def text(self, teavent: Teavent) -> Text:
-        t = teavent
+    def text(self, t: Teavent) -> Text:
         participants = t.participant_ids or ["~"]
 
         # fmt: off
@@ -71,13 +71,19 @@ class RegPollView(TgStateView):
         return make_regpoll_keyboard(teavent.id)
 
 
+class PlannedView(TgStateView):
+    def text(self, t: Teavent) -> Text:
+        return
+
+
 @define
 class TgStateViewFactory:
     _bot: aiogram.Bot
 
     _state_to_view = {
-        "poll_open": RegPollView,
-        "created": TgStateView,
+        TeaventFlow.created.value: None,
+        TeaventFlow.poll_open.value: RegPollView,
+        TeaventFlow.planned.value: PlannedView,
     }
 
     def create_view(self, state: str) -> TgStateView:

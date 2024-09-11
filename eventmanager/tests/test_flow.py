@@ -3,7 +3,7 @@ from statemachine.exceptions import TransitionNotAllowed
 import pytest
 
 from common.models import Teavent
-from eventmanager.flow import TeaventFlow
+from common.flow import TeaventFlow
 
 
 @pytest.fixture

@@ -186,24 +186,16 @@ class Teavent(TeaveModel):
 
         log.info(f"Shift teavent {self.id} to {self.start}")
 
+    def has_reserve(self) -> bool:
+        return bool(self.reserve_participant_ids)
 
-class FlowUpdate(TeaveModel):
-    teavent_id: str
-    user_id: str = ""
-    communication_ids: list[str] = []
-    type: str
-    data: dict = {}
+    @property
+    def effective_participant_ids(self) -> list[str]:
+        return self.participant_ids[: self.config.max]
 
-    @staticmethod
-    def for_teavent(teavent: Teavent, type: str, **data) -> "FlowUpdate":
-        "Create FlowUpdate for `teavent`"
-
-        return FlowUpdate(
-            teavent_id=teavent.id,
-            communication_ids=teavent.communication_ids,
-            type=type,
-            data=data,
-        )
+    @property
+    def reserve_participant_ids(self) -> list[str]:
+        return self.participant_ids[self.config.max :]
 
 
 def _calid_from_email(email: str) -> str:

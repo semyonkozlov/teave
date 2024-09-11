@@ -3,7 +3,7 @@ from attr import define
 
 from common.executors import Executor
 from common.models import Teavent
-from eventmanager.flow import TeaventFlow
+from common.flow import TeaventFlow
 
 
 @define(eq=False)  # eq=False for hashing by id

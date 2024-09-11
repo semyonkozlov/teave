@@ -4,8 +4,8 @@ from datetime import datetime
 
 from common.executors import Executor
 from common.models import Teavent
-from eventmanager.errors import TeaventIsManaged, UnknownTeavent
-from eventmanager.flow import TeaventFlow
+from common.errors import TeaventIsManaged, UnknownTeavent
+from common.flow import TeaventFlow
 from eventmanager.transitions_logger import TransitionsLogger
 
 log = logging.getLogger(__name__)
