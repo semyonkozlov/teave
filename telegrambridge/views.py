@@ -136,6 +136,14 @@ class StartedView(TgStateView):
         return make_started_keyboard(t.id)
 
 
+class CancelledView(TgStateView):
+    def text(self, t: Teavent) -> Text:
+        return Text("Событие ", TextLink(t.summary, url=t.link), Bold(" ОТМЕНЕНО"))
+
+    def keyboard(self, t: Teavent):
+        return None
+
+
 @define
 class TgStateViewFactory:
     _bot: aiogram.Bot
@@ -144,6 +152,7 @@ class TgStateViewFactory:
         TeaventFlow.poll_open.value: RegPollView,
         TeaventFlow.planned.value: PlannedView,
         TeaventFlow.started.value: StartedView,
+        TeaventFlow.cancelled.value: CancelledView,
     }
 
     def create_view(self, state: str) -> TgStateView:

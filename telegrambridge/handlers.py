@@ -88,7 +88,7 @@ async def handle_user_actions(
 
 # TODO: use state machine events to enum commands, move TeaventFlow to common
 @router.message(
-    Command(commands=["start_poll", "stop_poll", "cancel", "start_", "finish"]),
+    Command(commands=["start_poll", "stop_poll", "cancel", "start_", "end"]),
     IsAdmin(),
 )
 async def handle_admin_actions(
