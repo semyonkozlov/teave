@@ -36,6 +36,10 @@ class TeaventFlow(StateMachine):
     def teavent(self) -> Teavent:
         return self.model
 
+    def has_reserve(self, model: Teavent):
+        if not model.has_reserve():
+            raise RuntimeError("No reserve")
+
     @init.validators
     def not_in_final_state(self, model: Teavent):
         if self.current_state.final:

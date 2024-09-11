@@ -18,7 +18,7 @@ from attr import define
 
 from common.flow import TeaventFlow
 from common.models import Teavent
-from telegrambridge.keyboards import make_regpoll_keyboard
+from telegrambridge.keyboards import make_plannedpoll_keyboard, make_regpoll_keyboard
 
 
 @define
@@ -49,7 +49,8 @@ class TgStateView(ABC):
 
 class RegPollView(TgStateView):
     def text(self, t: Teavent) -> Text:
-        participants = t.participant_ids or ["~"]
+        participants = t.effective_participant_ids or ["~"]
+        reserve = t.reserve_participant_ids or ["~"]
 
         # fmt: off
         return as_section(
@@ -63,17 +64,44 @@ class RegPollView(TgStateView):
                     f"Участники ({t.num_participants}/{t.config.max}):", 
                     *participants, 
                     marker="  "),
+                as_marked_section(
+                    "Резерв:", 
+                    *reserve, 
+                    marker="  "),
             )
         )
         # fmt: on
 
-    def keyboard(self, teavent: Teavent):
-        return make_regpoll_keyboard(teavent.id)
+    def keyboard(self, t: Teavent):
+        return make_regpoll_keyboard(t.id)
 
 
 class PlannedView(TgStateView):
     def text(self, t: Teavent) -> Text:
-        return
+        participants = t.effective_participant_ids or ["~"]
+        reserve = t.reserve_participant_ids or ["~"]
+
+        # fmt: off
+        return as_section(
+            Bold(TextLink(t.summary, url=t.link), f" состоится {t.start.date()} в {t.start.time()}"),
+            "\n",
+            as_list(
+                as_key_value("Место", t.location),
+                as_key_value("Продолжительность", t.duration),
+                as_marked_section(
+                    f"Участники ({t.num_participants}/{t.config.max}):", 
+                    *participants, 
+                    marker="  "),
+                as_marked_section(
+                    "Резерв:", 
+                    *reserve, 
+                    marker="  "),
+            )
+        )
+        # fmt: on
+
+    def keyboard(self, t: Teavent):
+        return make_plannedpoll_keyboard(t.id)
 
 
 @define
@@ -91,7 +119,7 @@ class TgStateViewFactory:
 
 
 def _render_teavent(t: Teavent) -> Text:
-    participants = as_list(*t.participant_ids) if t.participant_ids else ""
+    participants = t.effective_participant_ids or ["~"]
 
     # fmt: off
     return as_section(
@@ -100,19 +128,24 @@ def _render_teavent(t: Teavent) -> Text:
             as_key_value("Статус", t.state),
             as_key_value("Начало", t.start),
             as_key_value("Продолжительность", t.duration),
-            as_key_value("Участники", participants),
+            as_marked_section(
+                f"Участники ({t.num_participants}/{t.config.max}):", 
+                *participants, 
+                marker="  "),
         )
     )
     # fmt: on
 
 
 def render_teavents(teavents: list[Teavent]) -> Text:
+    teavents_list = [_render_teavent(t) for t in teavents] or ["~"]
+
     # fmt: off
     return as_section(
         Bold(Underline("БЛИЖАЙШИЕ СОБЫТИЯ")),
         "\n",
         as_list(
-            *(_render_teavent(t) for t in teavents),
+            *teavents_list,
             sep="\n\n",
         )
     )

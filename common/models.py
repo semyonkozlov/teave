@@ -108,12 +108,6 @@ class Teavent(TeaveModel):
         return self.num_participants >= self.config.min
 
     @property
-    def packed(self) -> bool:
-        if self.num_participants > self.config.max:
-            warnings.warn("num_participants > config.max")
-        return self.num_participants >= self.config.max
-
-    @property
     def is_reccurring(self) -> bool:
         return bool(self.rrule)
 

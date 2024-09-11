@@ -10,9 +10,10 @@ from aiogram.filters import Command
 from aiogram.filters.command import CommandObject
 
 from common.errors import EventDescriptionParsingError
+from common.flow import TeaventFlow
 from common.models import Teavent
 from telegrambridge.filters import IsAdmin
-from telegrambridge.keyboards import RegPollAction
+from telegrambridge.keyboards import PlannedPollAction, RegPollAction
 from telegrambridge.middlewares import CalendarMiddleware, RmqMiddleware
 from telegrambridge.views import TgStateViewFactory, render_teavents
 
@@ -98,6 +99,25 @@ async def handle_admin_actions(
     await _handle_user_actions(message, command, user_action)
 
 
+@router.message(
+    Command(commands=["view"]),
+    IsAdmin(),
+)
+async def handle_view(
+    message: aiogram.types.Message,
+    command: CommandObject,
+    list_teavents: Coroutine,
+    view_factory: TgStateViewFactory,
+):
+    teavent_id = command.args
+
+    teavents = await list_teavents()
+    teavent = next(t for t in teavents if t.id == teavent_id)
+
+    view = view_factory.create_view(teavent.state)
+    await view.show(teavent)
+
+
 @router.message(Command("teavents"))
 async def handle_command_teavents(
     message: aiogram.types.Message, list_teavents: Coroutine
@@ -122,7 +142,33 @@ async def handle_reg_poll_action(
     except Exception as e:
         return await callback.answer(str(e), show_alert=True)
 
-    view = view_factory.create_view("poll_open")
+    view = view_factory.create_view(TeaventFlow.poll_open.value)
+
+    await view.update(
+        callback.message,
+        teavent=updated_teavent,
+    )
+
+    return await callback.answer()
+
+
+@router.callback_query(PlannedPollAction.filter())
+async def handle_planned_poll_action(
+    callback: aiogram.types.CallbackQuery,
+    callback_data: PlannedPollAction,
+    user_action: Coroutine,
+    view_factory: TgStateViewFactory,
+):
+    try:
+        updated_teavent = await user_action(
+            type=callback_data.action,
+            user_id=f"@{callback.from_user.username}",
+            teavent_id=callback_data.teavent_id,
+        )
+    except Exception as e:
+        return await callback.answer(str(e), show_alert=True)
+
+    view = view_factory.create_view(TeaventFlow.planned.value)
 
     await view.update(
         callback.message,
