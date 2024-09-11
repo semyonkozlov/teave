@@ -13,7 +13,7 @@ from common.errors import EventDescriptionParsingError
 from common.flow import TeaventFlow
 from common.models import Teavent
 from telegrambridge.filters import IsAdmin
-from telegrambridge.keyboards import PlannedPollAction, RegPollAction
+from telegrambridge.keyboards import IAmLateAction, PlannedPollAction, RegPollAction
 from telegrambridge.middlewares import CalendarMiddleware, RmqMiddleware
 from telegrambridge.views import TgStateViewFactory, render_teavents
 
@@ -169,6 +169,32 @@ async def handle_planned_poll_action(
         return await callback.answer(str(e), show_alert=True)
 
     view = view_factory.create_view(TeaventFlow.planned.value)
+
+    await view.update(
+        callback.message,
+        teavent=updated_teavent,
+    )
+
+    return await callback.answer()
+
+
+@router.callback_query(IAmLateAction.filter())
+async def handle_i_am_late_action(
+    callback: aiogram.types.CallbackQuery,
+    callback_data: IAmLateAction,
+    user_action: Coroutine,
+    view_factory: TgStateViewFactory,
+):
+    try:
+        updated_teavent = await user_action(
+            type=callback_data.action,
+            user_id=f"@{callback.from_user.username}",
+            teavent_id=callback_data.teavent_id,
+        )
+    except Exception as e:
+        return await callback.answer(str(e), show_alert=True)
+
+    view = view_factory.create_view(TeaventFlow.started.value)
 
     await view.update(
         callback.message,

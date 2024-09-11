@@ -25,6 +25,7 @@ class TeaventFlow(StateMachine):
     stop_poll = poll_open.to(planned, cond="ready") | poll_open.to(cancelled, unless="ready")
     cancel = cancelled.from_(poll_open, planned)
     start_ = planned.to(started)
+    i_am_late = started.to.itself(internal=True)
     end = started.to(ended)
     finalize = finalized.from_(cancelled, ended)
     recreate = created.from_(cancelled, ended)
@@ -45,6 +46,11 @@ class TeaventFlow(StateMachine):
         if self.current_state.final:
             raise TeaventIsInFinalState(model)
 
+    @i_am_late.on
+    def add_latee(self, user_id: str, model: Teavent):
+        if user_id not in model.latees:
+            model.latees.append(user_id)
+
     @init.on
     def adjust_timings(self, model: Teavent, now: datetime, recurring_exceptions: list):
         if model.is_reccurring:
@@ -59,6 +65,7 @@ class TeaventFlow(StateMachine):
         if model.confirmed_by(user_id):
             raise RuntimeError("Already confirmed")
 
+    @i_am_late.validators
     @reject.validators
     def confirmed_before(self, user_id: str, model: Teavent):
         if not model.confirmed_by(user_id):
@@ -76,3 +83,4 @@ class TeaventFlow(StateMachine):
     @recreate.on
     def reset_participants(self, model: Teavent):
         model.participant_ids = []
+        model.latees = []

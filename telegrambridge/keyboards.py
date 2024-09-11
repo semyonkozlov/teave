@@ -38,3 +38,18 @@ def make_plannedpoll_keyboard(teavent_id: str):
     )
     builder.adjust(2)
     return builder.as_markup()
+
+
+class IAmLateAction(CallbackData, prefix="i_am_late"):
+    teavent_id: str
+    action: str
+
+
+def make_started_keyboard(teavent_id: str):
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text="Опаздываю",
+        callback_data=IAmLateAction(action="i_am_late", teavent_id=teavent_id),
+    )
+    builder.adjust(1)
+    return builder.as_markup()

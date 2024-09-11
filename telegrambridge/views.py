@@ -3,6 +3,7 @@ from contextlib import suppress
 
 import aiogram
 from aiogram.exceptions import TelegramBadRequest
+from aiogram.types.message import Message
 from aiogram.utils.formatting import (
     as_list,
     as_section,
@@ -18,7 +19,11 @@ from attr import define
 
 from common.flow import TeaventFlow
 from common.models import Teavent
-from telegrambridge.keyboards import make_plannedpoll_keyboard, make_regpoll_keyboard
+from telegrambridge.keyboards import (
+    make_plannedpoll_keyboard,
+    make_regpoll_keyboard,
+    make_started_keyboard,
+)
 
 
 @define
@@ -45,6 +50,20 @@ class TgStateView(ABC):
 
     @abstractmethod
     def keyboard(self, t: Teavent): ...
+
+
+class NoOpView(TgStateView):
+    async def show(self, teavent: Teavent):
+        pass
+
+    async def update(self, message: Message, teavent: Teavent):
+        pass
+
+    def text(self, t: Teavent) -> Text:
+        return NotImplemented
+
+    def keyboard(self, t: Teavent):
+        return NotImplemented
 
 
 class RegPollView(TgStateView):
@@ -104,18 +123,32 @@ class PlannedView(TgStateView):
         return make_plannedpoll_keyboard(t.id)
 
 
+class StartedView(TgStateView):
+    def text(self, t: Teavent) -> Text:
+        text = Text("Событие ", TextLink(t.summary, url=t.link), " началось")
+        if t.latees:
+            text = as_section(
+                text, "\n", as_marked_section("Опаздывают:", *t.latees, marker="  ")
+            )
+        return text
+
+    def keyboard(self, t: Teavent):
+        return make_started_keyboard(t.id)
+
+
 @define
 class TgStateViewFactory:
     _bot: aiogram.Bot
 
     _state_to_view = {
-        TeaventFlow.created.value: None,
         TeaventFlow.poll_open.value: RegPollView,
         TeaventFlow.planned.value: PlannedView,
+        TeaventFlow.started.value: StartedView,
     }
 
     def create_view(self, state: str) -> TgStateView:
-        return self._state_to_view[state](self._bot)
+        view_cls = self._state_to_view.get(state) or NoOpView
+        return view_cls(self._bot)
 
 
 def _render_teavent(t: Teavent) -> Text:

@@ -58,6 +58,7 @@ class Teavent(TeaveModel):
     recurring_event_id: str | None = None
 
     participant_ids: list[str] = []
+    latees: list[str] = []
     state: str = "created"
 
     config: TeaventConfig = Field(default=TeaventConfig())

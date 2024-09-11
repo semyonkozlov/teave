@@ -38,8 +38,7 @@ async def main():
 
         async def on_teavent_update(message: aio_pika.abc.AbstractIncomingMessage):
             teavent = Teavent.from_message(message)
-            view = view_factory.create_view(teavent.state)
-            await view.show(teavent)
+            await view_factory.create_view(teavent.state).show(teavent)
 
         logging.info("Register consumers")
         await outgoing_updates_q.consume(on_teavent_update, no_ack=True)
