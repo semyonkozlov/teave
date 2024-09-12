@@ -60,7 +60,19 @@ async def handle_create_teavents_from_gcal_link(
     await message.reply(text=f"Got {num} teavents:\n {links}")
 
 
-async def _handle_user_actions(
+@router.message(
+    Command(
+        commands=[
+            TeaventFlow.start_poll.name,
+            TeaventFlow.stop_poll.name,
+            TeaventFlow.start_.name,
+            TeaventFlow.end.name,
+            TeaventFlow.cancel.name,
+        ]
+    ),
+    IsAdmin(),
+)
+async def handle_admin_actions(
     message: aiogram.types.Message,
     command: CommandObject,
     user_action: Coroutine,
@@ -75,28 +87,6 @@ async def _handle_user_actions(
     except Exception as e:
         await message.react([ReactionTypeEmoji(emoji="👨‍💻")])
         await message.reply(text=str(e))
-
-
-@router.message(Command(commands=["confirm", "reject"]))
-async def handle_user_actions(
-    message: aiogram.types.Message,
-    command: CommandObject,
-    user_action: Coroutine,
-):
-    await _handle_user_actions(message, command, user_action)
-
-
-# TODO: use state machine events to enum commands, move TeaventFlow to common
-@router.message(
-    Command(commands=["start_poll", "stop_poll", "cancel", "start_", "end"]),
-    IsAdmin(),
-)
-async def handle_admin_actions(
-    message: aiogram.types.Message,
-    command: CommandObject,
-    user_action: Coroutine,
-):
-    await _handle_user_actions(message, command, user_action)
 
 
 @router.message(
