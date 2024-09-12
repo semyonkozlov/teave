@@ -62,8 +62,12 @@ async def main():
                 type=type, user_id=user_id, teavent_id=teavent_id
             )
 
+        def tasks():
+            return [t.get_name() for t in executor.tasks()]
+
         await rpc.register("list_teavents", list_teavents, auto_delete=True)
         await rpc.register("user_action", user_action, auto_delete=True)
+        await rpc.register("tasks", tasks, auto_delete=True)
 
         logging.info("Register consumers")
 

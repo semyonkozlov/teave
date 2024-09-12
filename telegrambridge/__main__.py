@@ -53,6 +53,7 @@ async def main():
             view_factory=view_factory,
             user_action=rpc.proxy.user_action,
             list_teavents=rpc.proxy.list_teavents,
+            tasks=rpc.proxy.tasks,
         )
 
         logging.info("Set up bot handlers")

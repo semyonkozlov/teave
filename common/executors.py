@@ -29,7 +29,7 @@ class Executor(ABC):
     def tasks(self, group_id: str | None = None) -> list:
         if group_id is None:
             return sum((self.tasks(gid) for gid in self._tasks), [])
-        return list(self._tasks[group_id].values())
+        return list(self._tasks[group_id])
 
 
 async def _task(fn: Awaitable | Callable, name: str, delay_seconds: int):
