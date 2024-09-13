@@ -11,6 +11,8 @@ class TeaventsDB:
     _storage: aio_mongo.AsyncIOMotorCollection
     _executor: Executor
 
+    _update_id: int = 0
+
     async def fetch_teavents(self):
         async for document in self._storage.find():
             yield Teavent(**document)
@@ -18,15 +20,20 @@ class TeaventsDB:
     # SM actions
 
     def after_transition(self, model: Teavent):
+        self._update_id += 1
+
         self._executor.schedule(
             self._storage.replace_one(
                 {}, model.model_dump(mode="json", by_alias=True), upsert=True
             ),
-            name=f"{model.id}:dbupdate",
+            group_id=f"{model.id}_db",
+            name=f"update_{self._update_id}",
         )
 
     @TeaventFlow.finalized.enter
     def _drop_from_storage(self, model: Teavent):
         self._executor.schedule(
-            self._storage.delete_one({"_id": model.id}), name=f"{model.id}:dbdrop"
+            self._storage.delete_one({"_id": model.id}),
+            group_id=f"{model.id}_db",
+            name="drop",
         )

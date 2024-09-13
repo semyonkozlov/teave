@@ -9,36 +9,24 @@ from common.models import Teavent
 from eventmanager.manager import TeaventManager
 
 
-class NoTasks(Exception):
-    "No tasks to execute"
-
-
-@define
-class Task:
-    fn: Callable
-    name: str
-
-
 class FakeExecutor(Executor):
-    def schedule(self, fn, name: str, delay_seconds: int):
-        self._tasks[name] = Task(fn, name)
+    def schedule(self, fn, group_id: str, name: str, delay_seconds: int):
+        self._add_task(fn, group_id, name)
 
     def cancel(self, group_id: str):
-        pass
+        self._pop_group(group_id)
 
     def now(self, tz=None):
         return datetime(2024, 7, 31, 17, 0, tzinfo=tz)
 
     def execute_current_tasks(self):
-        if not (tasks := self.tasks()):
-            raise NoTasks
+        tasks = self.tasks()
+        assert tasks
 
-        for t in tasks:
-            t.fn()
-            self._tasks.pop(t.name)
+        self._tasks.clear()
 
-    def tasks(self):
-        return list(self._tasks.values())
+        for fn in tasks:
+            fn()
 
 
 @pytest.fixture

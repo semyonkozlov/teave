@@ -1,11 +1,11 @@
 import asyncio
 import inspect
 import logging
-from abc import ABC, abstractmethod
-from collections import defaultdict
 from datetime import datetime, timedelta
+from abc import ABC, abstractmethod
 from typing import Any
 from collections.abc import Awaitable, Callable
+from collections import defaultdict
 
 from attr import define
 
@@ -15,10 +15,21 @@ log = logging.getLogger(__name__)
 
 @define
 class Executor(ABC):
-    _tasks: dict[str, set] = defaultdict(set)
+    _tasks: dict[str, dict[str, Any]] = defaultdict(dict)
+
+    def _add_task(self, task: Any, group_id: str, name: str):
+        if name in self._tasks[group_id]:
+            raise RuntimeError(f"task '{name}' already exists in group '{group_id}")
+        self._tasks[group_id][name] = task
+
+    def _pop_group(self, group_id: str) -> dict[str, Any]:
+        return self._tasks.pop(group_id)
+
+    def _pop_task(self, group_id: str, name: str) -> Any:
+        return self._tasks[group_id].pop(name)
 
     @abstractmethod
-    def schedule(self, fn, name: str = None, delay_seconds: int = 0): ...
+    def schedule(self, fn, group_id: str, name: str = None, delay_seconds: int = 0): ...
 
     @abstractmethod
     def cancel(self, group_id: str): ...
@@ -26,10 +37,8 @@ class Executor(ABC):
     @abstractmethod
     def now(self, tz=None) -> datetime: ...
 
-    def tasks(self, group_id: str | None = None) -> list:
-        if group_id is None:
-            return sum((self.tasks(gid) for gid in self._tasks), [])
-        return list(self._tasks[group_id])
+    def tasks(self) -> list[Any]:
+        return sum((list(group.values()) for group in self._tasks.values()), [])
 
 
 async def _task(fn: Awaitable | Callable, name: str, delay_seconds: int):
@@ -48,29 +57,34 @@ async def _task(fn: Awaitable | Callable, name: str, delay_seconds: int):
 @define
 class AsyncioExecutor(Executor):
     def schedule(
-        self, fn: Awaitable | Callable, name: str = None, delay_seconds: int = 0
+        self,
+        fn: Awaitable | Callable,
+        group_id: str,
+        name: str = None,
+        delay_seconds: int = 0,
     ):
         if delay_seconds < 0:
             log.warning(f"Negative delay for task {name}")
 
-        asynciotask = asyncio.create_task(_task(fn, name, delay_seconds), name=name)
+        name = name or id(fn)
 
-        name = name or f"anon:{id(fn)}"
-        group_id = name.split(":")[0]
-
-        task_group = self._tasks[group_id]
-
-        assert name not in task_group
-        task_group.add(asynciotask)
+        fq_name = f"{group_id}:{name}"
+        asynciotask = asyncio.create_task(
+            _task(fn, fq_name, delay_seconds), name=fq_name
+        )
 
         def _on_task_done(t: asyncio.Task):
-            task_group.discard(t)
+            group_id, name = t.get_name().split(":")
+            if not t.cancelled():
+                self._pop_task(group_id, name)
 
         asynciotask.add_done_callback(_on_task_done)
 
+        self._add_task(asynciotask, group_id, name)
+
     def cancel(self, group_id: str):
-        for t in self._tasks[group_id]:
-            t.cancel()
+        for task in self._pop_group(group_id).values():
+            task.cancel()
 
     def now(self, tz=None) -> datetime:
         return datetime.now(tz)

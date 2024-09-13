@@ -30,5 +30,6 @@ class RmqProtocol:
         if source != state:
             self._executor.schedule(
                 self._publish_update(model.model_copy()),
-                name=f"{model.id}:pub_{state.value}",
+                group_id=f"{model.id}_pub",
+                name=state.value,
             )

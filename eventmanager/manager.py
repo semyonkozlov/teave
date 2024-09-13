@@ -62,10 +62,19 @@ class TeaventManager:
             raise UnknownTeavent(teavent_id) from e
 
     def _schedule(self, trigger: Callable, teavent: Teavent, at: datetime):
+        group_id = f"{teavent.id}_sm"
+
+        try:
+            self._executor.cancel(group_id)
+            log.info(f"Task group {group_id} is cancelled")
+        except KeyError:
+            pass
+
         delay = (at - self._executor.now(tz=at.tzinfo)).total_seconds()
         self._executor.schedule(
             lambda: trigger(self._teavent_sm(teavent.id)),
-            name=f"{teavent.id}:{trigger.name}",
+            group_id=group_id,
+            name=trigger.name,
             delay_seconds=delay,
         )
 
