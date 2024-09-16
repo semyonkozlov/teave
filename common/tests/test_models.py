@@ -67,6 +67,7 @@ def recurring_exception():
         start=datetime(2024, 8, 28, 19, 0),
         end=datetime(2024, 8, 28, 21, 0),
         recurring_event_id="2gud232jsatd8pmnu0mnng0if2",
+        original_start_time=datetime(2024, 7, 31, 21, 0),
         participant_ids=[],
         state="created",
         config=TeaventConfig(max=5, min=3, start_poll_at="11:00", stop_poll_at="14:00"),

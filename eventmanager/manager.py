@@ -35,7 +35,12 @@ class TeaventManager:
 
     def handle_user_action(self, type: str, user_id: str, teavent_id: str):
         sm = self._teavent_sm(teavent_id)
-        sm.send(type, user_id=user_id)
+        sm.send(
+            type,
+            user_id=user_id,
+            now=self._executor.now(sm.teavent.tz),
+            recurring_exceptions=self._get_recurring_exceptions(sm.teavent.id),
+        )
         return sm.teavent
 
     def _manage(self, teavent: Teavent):
@@ -86,8 +91,6 @@ class TeaventManager:
         ]
 
     # SM actions
-
-    # TODO: check state reenter (ex planned -> planned)
 
     @TeaventFlow.created.enter
     def _schedule_start_poll(self, model: Teavent):

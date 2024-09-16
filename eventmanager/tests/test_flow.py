@@ -1,9 +1,12 @@
-from statemachine.exceptions import TransitionNotAllowed
+from datetime import datetime
 
+from statemachine.exceptions import TransitionNotAllowed
 import pytest
 
 from common.models import Teavent
 from common.flow import TeaventFlow
+
+pytestmark = pytest.mark.skip(reason="Fix bug in python-statemachine")
 
 
 @pytest.fixture
@@ -11,7 +14,6 @@ def flow(teavent: Teavent):
     return TeaventFlow(model=teavent, state_field="state")
 
 
-@pytest.mark.skip(reason="Fix bug in python-statemachine")
 def test_not_enough_participants(flow: TeaventFlow):
     assert flow.current_state == flow.created
 
@@ -31,3 +33,11 @@ def test_not_enough_participants(flow: TeaventFlow):
     assert flow.current_state == flow.cancelled
 
     assert flow.teavent.participant_ids == ["1", "2"]
+
+
+def test_model_recreate(flow: TeaventFlow):
+    tz = flow.teavent.tz
+
+    flow.recreate(now=datetime(2024, 9, 16, 17, 0, tzinfo=tz), recurring_exceptions=[])
+
+    assert flow.teavent.start == datetime(2024, 9, 16, 21, 0, tzinfo=tz)

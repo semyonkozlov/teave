@@ -16,6 +16,9 @@ def teavent():
         start=datetime(2024, 7, 31, 21, 0, tzinfo=timezone(timedelta(hours=4))),
         end=datetime(2024, 7, 31, 23, 0, tzinfo=timezone(timedelta(hours=4))),
         rrule=["RRULE:FREQ=WEEKLY;WKST=MO;BYDAY=WE,MO,FR"],
+        original_start_time=datetime(
+            2024, 7, 31, 21, 0, tzinfo=timezone(timedelta(hours=4))
+        ),
         participant_ids=[],
         state="created",
         config=TeaventConfig(max=5, min=3, start_poll_at="11:00", stop_poll_at="14:00"),

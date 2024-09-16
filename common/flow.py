@@ -23,12 +23,12 @@ class TeaventFlow(StateMachine):
     confirm = poll_open.to.itself(internal=True) | planned.to.itself(internal=True)
     reject = planned.to.itself(internal=True, validators="has_reserve") | poll_open.to.itself(internal=True)
     stop_poll = poll_open.to(planned, cond="ready") | poll_open.to(cancelled, unless="ready")
-    cancel = cancelled.from_(poll_open, planned)
+    cancel = cancelled.from_(created, poll_open, planned)
     start_ = planned.to(started)
     i_am_late = started.to.itself(internal=True)
     end = started.to(ended)
     finalize = finalized.from_(cancelled, ended)
-    recreate = created.from_(cancelled, ended)
+    recreate = created.from_(created, cancelled, ended)
 
     init = created.to.itself() | poll_open.to.itself() | planned.to.itself() | started.to.itself() | cancelled.to.itself() | ended.to.itself()
     # fmt: on

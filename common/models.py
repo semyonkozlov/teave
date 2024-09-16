@@ -56,6 +56,7 @@ class Teavent(TeaveModel):
 
     rrule: list[str] | None = None
     recurring_event_id: str | None = None
+    original_start_time: datetime
 
     participant_ids: list[str] = []
     latees: list[str] = []
@@ -72,7 +73,15 @@ class Teavent(TeaveModel):
         gcal_event_item: dict[str, str], communication_ids: list[str]
     ) -> "Teavent":
         _ = gcal_event_item
+
         description = _["description"].replace("\xa0", " ")
+        start = datetime.fromisoformat(_["start"]["dateTime"])
+        original_start_time_raw = _.get("originalStartTime", {}).get("dateTime")
+        original_start_time = (
+            datetime.fromisoformat(original_start_time_raw)
+            if original_start_time_raw
+            else start
+        )
 
         return Teavent(
             id=_["id"],
@@ -80,10 +89,11 @@ class Teavent(TeaveModel):
             summary=_["summary"],
             description=description,
             location=_.get("location"),
-            start=datetime.fromisoformat(_["start"]["dateTime"]),
+            start=start,
             end=datetime.fromisoformat(_["end"]["dateTime"]),
             rrule=_.get("recurrence"),
             recurring_event_id=_.get("recurringEventId"),
+            original_start_time=original_start_time,
             config=TeaventConfig.from_description(description),
             communication_ids=communication_ids,
         )
@@ -156,7 +166,7 @@ class Teavent(TeaveModel):
     def _rruleset(self) -> rruleset:
         rr = rruleset()
         for r in self.rrule:
-            rr.rrule(rrulestr(r, dtstart=self.start))
+            rr.rrule(rrulestr(r, dtstart=self.original_start_time))
         return rr
 
     def adjust(self, now: datetime, recurring_exceptions: list["Teavent"]):

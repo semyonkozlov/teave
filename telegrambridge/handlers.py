@@ -68,6 +68,7 @@ async def handle_create_teavents_from_gcal_link(
             TeaventFlow.start_.name,
             TeaventFlow.end.name,
             TeaventFlow.cancel.name,
+            TeaventFlow.recreate.name,
         ]
     ),
     IsAdmin(),
@@ -194,7 +195,7 @@ async def handle_i_am_late_action(
     return await callback.answer()
 
 
-@router.message(Command(commands=["tasks"]))
+@router.message(Command(commands=["tasks"]), IsAdmin())
 async def handle_tasks(message: aiogram.types.Message, tasks: Coroutine):
     await message.reply(str(await tasks()))
 
