@@ -6,7 +6,7 @@ import re
 import aiogram
 from aiogram import F
 from aiogram.types import ReactionTypeEmoji
-from aiogram.filters import Command
+from aiogram.filters import Command, CommandStart
 from aiogram.filters.command import CommandObject
 
 from common.errors import EventDescriptionParsingError
@@ -58,6 +58,31 @@ async def handle_create_teavents_from_gcal_link(
     num = len(teavents_to_publish)
     links = "\n".join(e.link for e in teavents_to_publish)
     await message.reply(text=f"Got {num} teavents:\n {links}")
+
+
+deep_link = re.compile(r"(.*)_(.*)")
+
+
+@router.message(
+    CommandStart(deep_link=True, magic=F.args.regexp(deep_link).as_("match"))
+)
+async def handle_deeplink(
+    message: aiogram.types.Message,
+    user_action: Coroutine,
+    match: re.Match[str],
+):
+    action_type, teavent_id = match.groups()
+
+    try:
+        await user_action(
+            type=action_type,
+            user_id=str(message.from_user.id),
+            teavent_id=teavent_id,
+        )
+        await message.react([ReactionTypeEmoji(emoji="👍")])
+    except Exception as e:
+        await message.react([ReactionTypeEmoji(emoji="👨‍💻")])
+        await message.reply(text=str(e))
 
 
 @router.message(
