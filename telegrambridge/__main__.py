@@ -12,7 +12,7 @@ from telegrambridge.middlewares import (
     RmqMiddleware,
     init_aiogoogle,
 )
-from telegrambridge.views import TgStateViewFactory
+from telegrambridge.views import TgTeaventViewFactory
 
 
 async def main():
@@ -34,7 +34,7 @@ async def main():
         bot = aiogram.Bot(token=os.getenv("TOKEN"))
 
         logging.info("Init views")
-        view_factory = TgStateViewFactory(bot)
+        view_factory = TgTeaventViewFactory(bot)
 
         async def on_teavent_update(message: aio_pika.abc.AbstractIncomingMessage):
             teavent = Teavent.from_message(message)

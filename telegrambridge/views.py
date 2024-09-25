@@ -27,7 +27,7 @@ from telegrambridge.keyboards import (
 
 
 @define
-class TgStateView(ABC):
+class TgTeaventView(ABC):
     _bot: aiogram.Bot
 
     async def show(self, teavent: Teavent):
@@ -53,7 +53,7 @@ class TgStateView(ABC):
     def keyboard(self, t: Teavent): ...
 
 
-class NoOpView(TgStateView):
+class NoOpView(TgTeaventView):
     async def show(self, teavent: Teavent):
         pass
 
@@ -67,7 +67,7 @@ class NoOpView(TgStateView):
         return NotImplemented
 
 
-class RegPollView(TgStateView):
+class RegPollView(TgTeaventView):
     def text(self, t: Teavent) -> Text:
         participants = t.effective_participant_ids or ["~"]
         reserve = t.reserve_participant_ids or ["~"]
@@ -96,7 +96,7 @@ class RegPollView(TgStateView):
         return make_regpoll_keyboard(t.id)
 
 
-class PlannedView(TgStateView):
+class PlannedView(TgTeaventView):
     def text(self, t: Teavent) -> Text:
         participants = t.effective_participant_ids or ["~"]
         reserve = t.reserve_participant_ids or ["~"]
@@ -124,7 +124,7 @@ class PlannedView(TgStateView):
         return make_plannedpoll_keyboard(t.id)
 
 
-class StartedView(TgStateView):
+class StartedView(TgTeaventView):
     def text(self, t: Teavent) -> Text:
         text = Text("Событие ", TextLink(t.summary, url=t.link), " началось")
         if t.latees:
@@ -137,7 +137,7 @@ class StartedView(TgStateView):
         return make_started_keyboard(t.id)
 
 
-class CancelledView(TgStateView):
+class CancelledView(TgTeaventView):
     def text(self, t: Teavent) -> Text:
         return Text("Событие ", TextLink(t.summary, url=t.link), Bold(" ОТМЕНЕНО"))
 
@@ -146,7 +146,7 @@ class CancelledView(TgStateView):
 
 
 @define
-class TgStateViewFactory:
+class TgTeaventViewFactory:
     _bot: aiogram.Bot
 
     _state_to_view = {
@@ -156,7 +156,7 @@ class TgStateViewFactory:
         TeaventFlow.cancelled.value: CancelledView,
     }
 
-    def create_view(self, state: str) -> TgStateView:
+    def create_view(self, state: str) -> TgTeaventView:
         view_cls = self._state_to_view.get(state) or NoOpView
         return view_cls(self._bot)
 

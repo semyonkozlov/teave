@@ -15,7 +15,7 @@ from common.models import Teavent
 from telegrambridge.filters import IsAdmin
 from telegrambridge.keyboards import IAmLateAction, PlannedPollAction, RegPollAction
 from telegrambridge.middlewares import CalendarMiddleware, RmqMiddleware
-from telegrambridge.views import TgStateViewFactory, render_teavents
+from telegrambridge.views import TgTeaventViewFactory, render_teavents
 
 
 log = logging.getLogger(__name__)
@@ -115,15 +115,12 @@ async def handle_admin_actions(
         await message.reply(text=str(e))
 
 
-@router.message(
-    Command(commands=["view"]),
-    IsAdmin(),
-)
+@router.message(Command("view"), IsAdmin())
 async def handle_view(
     message: aiogram.types.Message,
     command: CommandObject,
     list_teavents: Coroutine,
-    view_factory: TgStateViewFactory,
+    view_factory: TgTeaventViewFactory,
 ):
     teavent_id = command.args
 
@@ -147,7 +144,7 @@ async def handle_reg_poll_action(
     callback: aiogram.types.CallbackQuery,
     callback_data: RegPollAction,
     user_action: Coroutine,
-    view_factory: TgStateViewFactory,
+    view_factory: TgTeaventViewFactory,
 ):
     try:
         updated_teavent = await user_action(
@@ -173,7 +170,7 @@ async def handle_planned_poll_action(
     callback: aiogram.types.CallbackQuery,
     callback_data: PlannedPollAction,
     user_action: Coroutine,
-    view_factory: TgStateViewFactory,
+    view_factory: TgTeaventViewFactory,
 ):
     try:
         updated_teavent = await user_action(
@@ -199,7 +196,7 @@ async def handle_i_am_late_action(
     callback: aiogram.types.CallbackQuery,
     callback_data: IAmLateAction,
     user_action: Coroutine,
-    view_factory: TgStateViewFactory,
+    view_factory: TgTeaventViewFactory,
 ):
     try:
         updated_teavent = await user_action(
@@ -220,7 +217,7 @@ async def handle_i_am_late_action(
     return await callback.answer()
 
 
-@router.message(Command(commands=["tasks"]), IsAdmin())
+@router.message(Command("tasks"), IsAdmin())
 async def handle_tasks(message: aiogram.types.Message, tasks: Coroutine):
     await message.reply(str(await tasks()))
 
