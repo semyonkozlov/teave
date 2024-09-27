@@ -2,9 +2,7 @@ from aiogram.filters.state import StatesGroup, State
 from aiogram.types import CallbackQuery
 from aiogram_dialog import Dialog, DialogManager, Window
 from aiogram_dialog.widgets.text import Const, Format
-from aiogram_dialog.widgets.kbd import Select, Group, Button, Back, SwitchTo
-
-from common.models import Teavent
+from aiogram_dialog.widgets.kbd import Select, Group, Button, Back, SwitchTo, Cancel
 
 
 class TeaventAdmin(StatesGroup):
@@ -16,7 +14,7 @@ class TeaventAdmin(StatesGroup):
     kick_users = State()
 
 
-async def get_teavents(**kwargs) -> list[Teavent]:
+async def get_teavents(**kwargs) -> dict:
     teavents = await kwargs["list_teavents"]()
     return {
         "teavents": teavents,
@@ -26,7 +24,7 @@ async def get_teavents(**kwargs) -> list[Teavent]:
 
 async def on_teavent_selected(
     callback: CallbackQuery,
-    widget,
+    button: Button,
     manager: DialogManager,
     item_id: str,
 ):
@@ -44,6 +42,7 @@ def select_teavent() -> Window:
             items="teavents",
             on_click=on_teavent_selected,
         ),
+        Cancel(Const("Закрыть")),  # TODO check show mode
         getter=get_teavents,
         state=TeaventAdmin.select_teavent,
     )
@@ -75,7 +74,31 @@ def teavent_settings() -> Window:
     )
 
 
-def confirm_cancel() -> Window: ...
+async def cancel_teavent(
+    callback: CallbackQuery,
+    button: Button,
+    manager: DialogManager,
+):
+    user_action = manager.middleware_data["user_action"]
+    await user_action(
+        type="cancel",
+        user_id=f"@{callback.from_user.username}",
+        teavent_id=manager.dialog_data["selected_teavent_id"],
+    )
+    await manager.done()
+
+
+def confirm_cancel() -> Window:
+    return Window(
+        Format("Отменить {dialog_data[selected_teavent_id]}?"),
+        Button(
+            Const("Да"),
+            id="cancel_yes",
+            on_click=cancel_teavent,
+        ),
+        Back(Const("Нет")),
+        state=TeaventAdmin.confirm_cancel,
+    )
 
 
 def add_users() -> Window: ...
@@ -88,8 +111,7 @@ def admin_dialog() -> Dialog:
     return Dialog(
         select_teavent(),
         teavent_settings(),
-        # confirm_cancel(),
-        # confirm_reset(),
+        confirm_cancel(),
         # add_users(),
         # kick_users(),
     )
