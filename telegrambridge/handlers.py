@@ -8,10 +8,12 @@ from aiogram import F
 from aiogram.types import ReactionTypeEmoji
 from aiogram.filters import Command, CommandStart
 from aiogram.filters.command import CommandObject
+from aiogram_dialog import DialogManager, StartMode
 
 from common.errors import EventDescriptionParsingError
 from common.flow import TeaventFlow
 from common.models import Teavent
+from telegrambridge.dialogs import TeaventAdmin
 from telegrambridge.filters import IsAdmin
 from telegrambridge.keyboards import IAmLateAction, PlannedPollAction, RegPollAction
 from telegrambridge.middlewares import CalendarMiddleware, RmqMiddleware
@@ -137,6 +139,14 @@ async def handle_command_teavents(
 ):
     content = render_teavents(await list_teavents())
     await message.reply(**content.as_kwargs())
+
+
+@router.message(Command("settings"), IsAdmin())
+async def handle_command_settings(
+    message: aiogram.types.Message,
+    dialog_manager: DialogManager,
+):
+    await dialog_manager.start(TeaventAdmin.select_teavent, mode=StartMode.RESET_STACK)
 
 
 @router.callback_query(RegPollAction.filter())

@@ -72,7 +72,6 @@ class RegPollView(TgTeaventView):
         participants = t.effective_participant_ids or ["~"]
         reserve = t.reserve_participant_ids or ["~"]
 
-        # fmt: off
         return as_section(
             Bold("ЗАПИСЬ НА СОБЫТИЕ ", TextLink(t.summary, url=t.link)),
             "\n",
@@ -81,16 +80,17 @@ class RegPollView(TgTeaventView):
                 as_key_value("Начало", t.start),
                 as_key_value("Продолжительность", t.duration),
                 as_marked_section(
-                    f"Участники ({t.num_participants}/{t.config.max}):", 
-                    *participants, 
-                    marker="  "),
+                    f"Участники ({t.num_participants}/{t.config.max}):",
+                    *participants,
+                    marker="  ",
+                ),
                 as_marked_section(
-                    "Резерв:", 
-                    *reserve, 
-                    marker="  "),
-            )
+                    "Резерв:",
+                    *reserve,
+                    marker="  ",
+                ),
+            ),
         )
-        # fmt: on
 
     def keyboard(self, t: Teavent):
         return make_regpoll_keyboard(t.id)
@@ -101,24 +101,23 @@ class PlannedView(TgTeaventView):
         participants = t.effective_participant_ids or ["~"]
         reserve = t.reserve_participant_ids or ["~"]
 
-        # fmt: off
         return as_section(
-            Bold(TextLink(t.summary, url=t.link), f" состоится {t.start.date()} в {t.start.time()}"),
+            Bold(
+                TextLink(t.summary, url=t.link),
+                f" состоится {t.start.date()} в {t.start.time()}",
+            ),
             "\n",
             as_list(
                 as_key_value("Место", t.location),
                 as_key_value("Продолжительность", t.duration),
                 as_marked_section(
-                    f"Участники ({t.num_participants}/{t.config.max}):", 
-                    *participants, 
-                    marker="  "),
-                as_marked_section(
-                    "Резерв:", 
-                    *reserve, 
-                    marker="  "),
-            )
+                    f"Участники ({t.num_participants}/{t.config.max}):",
+                    *participants,
+                    marker="  ",
+                ),
+                as_marked_section("Резерв:", *reserve, marker="  "),
+            ),
         )
-        # fmt: on
 
     def keyboard(self, t: Teavent):
         return make_plannedpoll_keyboard(t.id)
@@ -168,7 +167,6 @@ def _render_teavent(t: Teavent) -> Text:
         username="teave_bot", link_type="start", payload=f"cancel_{t.id}"
     )
 
-    # fmt: off
     return as_section(
         TextLink(t.summary, url=t.link),
         as_list(
@@ -177,24 +175,22 @@ def _render_teavent(t: Teavent) -> Text:
             as_key_value("Начало", t.start),
             as_key_value("Продолжительность", t.duration),
             as_marked_section(
-                f"Участники ({t.num_participants}/{t.config.max}):", 
-                *participants, 
-                marker="  "),
-        )
+                f"Участники ({t.num_participants}/{t.config.max}):",
+                *participants,
+                marker="  ",
+            ),
+        ),
     )
-    # fmt: on
 
 
 def render_teavents(teavents: list[Teavent]) -> Text:
     teavents_list = [_render_teavent(t) for t in teavents] or ["~"]
 
-    # fmt: off
     return as_section(
         Bold(Underline("БЛИЖАЙШИЕ СОБЫТИЯ")),
         "\n",
         as_list(
             *teavents_list,
             sep="\n\n",
-        )
+        ),
     )
-    # fmt: on

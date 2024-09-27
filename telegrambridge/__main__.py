@@ -3,10 +3,15 @@ import logging
 import os
 
 import aiogram
+from aiogram.fsm.storage.mongo import MongoStorage
+from aiogram.fsm.storage.memory import MemoryStorage
+import aiogram_dialog
 import aio_pika
+import motor.motor_asyncio as aio_mongo
 
 from common.models import Teavent
 import telegrambridge.handlers as handlers
+import telegrambridge.dialogs as dialogs
 from telegrambridge.middlewares import (
     CalendarMiddleware,
     RmqMiddleware,
@@ -19,6 +24,7 @@ async def main():
     logging.basicConfig(level=logging.INFO)
 
     rmq_connection = await aio_pika.connect("amqp://guest:guest@rabbitmq")
+    mongoc = aio_mongo.AsyncIOMotorClient("mongodb://admin:pass@mongodb")
     aiogoogle = init_aiogoogle()
 
     async with rmq_connection, aiogoogle:
@@ -50,11 +56,18 @@ async def main():
         calendar_api = await aiogoogle.discover("calendar", "v3")
 
         dp = aiogram.Dispatcher(
+            # TODO replace storage
+            # storage=MongoStorage(mongoc),
+            storage=MemoryStorage(),
             view_factory=view_factory,
             user_action=rpc.proxy.user_action,
             list_teavents=rpc.proxy.list_teavents,
             tasks=rpc.proxy.tasks,
         )
+
+        logging.info("Set up dialogs")
+        aiogram_dialog.setup_dialogs(dp)
+        dp.include_router(dialogs.admin_dialog())
 
         logging.info("Set up bot handlers")
         dp.include_router(handlers.router)
