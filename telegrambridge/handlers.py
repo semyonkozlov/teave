@@ -152,7 +152,10 @@ async def handle_command_settings(
         mode=StartMode.RESET_STACK,
         show_mode=ShowMode.DELETE_AND_SEND,
     )
-    await message.delete()
+    try:
+        await message.delete()
+    except:
+        log.exception("Can't delete message")
 
 
 @router.callback_query(RegPollAction.filter())
