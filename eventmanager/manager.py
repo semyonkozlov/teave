@@ -54,11 +54,11 @@ class TeaventManager:
 
         # all recurring_exceptions must be managed
         # TODO: handle recurring exceptions properly
+        self._statemachines[teavent.id] = sm
         sm.init(
             now=self._executor.now(teavent.tz),
             recurring_exceptions=self._get_recurring_exceptions(teavent.id),
         )
-        self._statemachines[teavent.id] = sm
 
     def _teavent_sm(self, teavent_id: str) -> TeaventFlow:
         try:
