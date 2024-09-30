@@ -1,9 +1,26 @@
+import logging
+
+from decorator import decorator
+
 from aiogram.filters.state import StatesGroup, State
 from aiogram.types import CallbackQuery, Message
-from aiogram_dialog import Dialog, DialogManager, LaunchMode, Window
+from aiogram_dialog import Dialog, DialogManager, Window
 from aiogram_dialog.widgets.text import Const, Format
 from aiogram_dialog.widgets.kbd import Select, Group, Button, Back, SwitchTo, Cancel
 from aiogram_dialog.widgets.input import TextInput
+
+log = logging.getLogger(__name__)
+
+
+@decorator
+async def finish_dialog(func, *args, **kwargs):
+    manager: DialogManager = args[2]
+
+    try:
+        await func(*args, **kwargs)
+        await manager.done()
+    except Exception as e:
+        await manager.done(e)
 
 
 class TeaventAdmin(StatesGroup):
@@ -75,18 +92,19 @@ def teavent_settings() -> Window:
     )
 
 
+@finish_dialog
 async def do_cancel(
     callback: CallbackQuery,
     button: Button,
     manager: DialogManager,
 ):
     user_action = manager.middleware_data["user_action"]
+
     await user_action(
         type="cancel",
         user_id=f"@{callback.from_user.username}",
         teavent_id=manager.dialog_data["selected_teavent_id"],
     )
-    await manager.done()
 
 
 def confirm_cancel() -> Window:
@@ -102,6 +120,7 @@ def confirm_cancel() -> Window:
     )
 
 
+@finish_dialog
 async def do_add_users(
     message: Message,
     button: Button,
@@ -109,13 +128,13 @@ async def do_add_users(
     data: str,
 ):
     user_action = manager.middleware_data["user_action"]
+
     for user_id in data.split(","):
         await user_action(
             type="confirm",
             user_id=user_id,
             teavent_id=manager.dialog_data["selected_teavent_id"],
         )
-    await manager.done()
 
 
 def add_users() -> Window:
@@ -129,10 +148,26 @@ def add_users() -> Window:
             on_success=do_add_users,
         ),
         state=TeaventAdmin.add_users,
+        # markup_factory=ReplyKeyboardFactory(
+        #     input_field_placeholder=Const("@username, ...")
+        # ),
     )
 
 
 def kick_users() -> Window: ...
+
+
+async def on_close(result, manager: DialogManager):
+    event: CallbackQuery | Message = manager.event
+
+    if isinstance(event, CallbackQuery):
+        if result is not None:
+            await event.answer(str(result), show_alert=True)
+
+        await manager.event.message.delete()
+    elif isinstance(event, Message):
+        if result is not None:
+            await event.reply(str(result))
 
 
 def admin_dialog() -> Dialog:
@@ -142,4 +177,5 @@ def admin_dialog() -> Dialog:
         confirm_cancel(),
         add_users(),
         # kick_users(),
+        on_close=on_close,
     )

@@ -6,9 +6,10 @@ import re
 import aiogram
 from aiogram import F
 from aiogram.types import ReactionTypeEmoji
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, CommandStart
 from aiogram.filters.command import CommandObject
-from aiogram_dialog import DialogManager, StartMode
+from aiogram_dialog import DialogManager, ShowMode, StartMode
 
 from common.errors import EventDescriptionParsingError
 from common.flow import TeaventFlow
@@ -146,7 +147,12 @@ async def handle_command_settings(
     message: aiogram.types.Message,
     dialog_manager: DialogManager,
 ):
-    await dialog_manager.start(TeaventAdmin.select_teavent, mode=StartMode.RESET_STACK)
+    await dialog_manager.start(
+        TeaventAdmin.select_teavent,
+        mode=StartMode.RESET_STACK,
+        show_mode=ShowMode.DELETE_AND_SEND,
+    )
+    await message.delete()
 
 
 @router.callback_query(RegPollAction.filter())
