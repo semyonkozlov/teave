@@ -6,7 +6,6 @@ import re
 import aiogram
 from aiogram import F
 from aiogram.types import ReactionTypeEmoji
-from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, CommandStart
 from aiogram.filters.command import CommandObject
 from aiogram_dialog import DialogManager, ShowMode, StartMode
@@ -122,13 +121,10 @@ async def handle_admin_actions(
 async def handle_view(
     message: aiogram.types.Message,
     command: CommandObject,
-    list_teavents: Coroutine,
+    get_teavent: Coroutine,
     view_factory: TgTeaventViewFactory,
 ):
-    teavent_id = command.args
-
-    teavents = await list_teavents()
-    teavent = next(t for t in teavents if t.id == teavent_id)
+    teavent = await get_teavent(id=command.args)
 
     view = view_factory.create_view(teavent.state)
     await view.show(teavent)
@@ -140,6 +136,26 @@ async def handle_command_teavents(
 ):
     content = render_teavents(await list_teavents())
     await message.reply(**content.as_kwargs())
+
+
+@router.message(Command(re.compile("settings_(.*)")), IsAdmin())
+async def handle_command_settings_with_teavent_id(
+    message: aiogram.types.Message,
+    command: CommandObject,
+    dialog_manager: DialogManager,
+):
+    teavent_id = command.regexp_match.group(1)
+
+    await dialog_manager.start(
+        TeaventAdmin.teavent_settings,
+        mode=StartMode.RESET_STACK,
+        show_mode=ShowMode.DELETE_AND_SEND,
+        data={"selected_teavent_id": teavent_id},
+    )
+    try:
+        await message.delete()
+    except:
+        log.exception("Can't delete message")
 
 
 @router.message(Command("settings"), IsAdmin())

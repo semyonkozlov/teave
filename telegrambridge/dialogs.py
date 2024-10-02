@@ -260,6 +260,11 @@ async def on_close(result, manager: DialogManager):
             await event.reply(str(result))
 
 
+async def on_start(start_data, manager: DialogManager):
+    if start_data is not None:
+        manager.dialog_data.update(start_data)
+
+
 def admin_dialog() -> Dialog:
     return Dialog(
         select_teavent(),
@@ -267,5 +272,6 @@ def admin_dialog() -> Dialog:
         confirm_cancel(),
         add_participants(),
         kick_participants(),
+        on_start=on_start,
         on_close=on_close,
     )

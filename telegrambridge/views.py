@@ -170,7 +170,7 @@ def _render_teavent(t: Teavent) -> Text:
     return as_section(
         TextLink(t.summary, url=t.link),
         as_list(
-            TextLink("Отменить", url=cancel_deep_link),
+            Text(f"/settings_{t.id}"),
             as_key_value("Статус", t.state),
             as_key_value("Начало", t.start),
             as_key_value("Продолжительность", t.duration),
