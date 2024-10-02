@@ -52,8 +52,11 @@ async def main():
         # to view tracebacks of RPC-calls
         # rpc.host_exceptions = True
 
-        async def list_teavents() -> list[Teavent]:
+        def list_teavents() -> list[Teavent]:
             return manager.list_teavents()
+
+        def get_teavent(*, id: str) -> Teavent:
+            return manager.get_teavent(id)
 
         # HACK: real exception might be not pickle-serializable, rethrow it as RuntimeError
         @rethrow_exceptions_as(cls=RuntimeError)
@@ -66,6 +69,7 @@ async def main():
             return [t.get_name() for t in executor.tasks()]
 
         await rpc.register("list_teavents", list_teavents, auto_delete=True)
+        await rpc.register("get_teavent", get_teavent, auto_delete=True)
         await rpc.register("user_action", user_action, auto_delete=True)
         await rpc.register("tasks", tasks, auto_delete=True)
 

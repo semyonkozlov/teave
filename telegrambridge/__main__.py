@@ -60,8 +60,9 @@ async def main():
             # storage=MongoStorage(mongoc),
             storage=MemoryStorage(),
             view_factory=view_factory,
-            user_action=rpc.proxy.user_action,
             list_teavents=rpc.proxy.list_teavents,
+            get_teavent=rpc.proxy.get_teavent,
+            user_action=rpc.proxy.user_action,
             tasks=rpc.proxy.tasks,
         )
 

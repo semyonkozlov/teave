@@ -25,6 +25,9 @@ class TeaventManager:
     def list_teavents(self) -> list[Teavent]:
         return list(sm.teavent for sm in self._statemachines.values())
 
+    def get_teavent(self, id: str) -> Teavent:
+        return self._statemachines[id].teavent
+
     def handle_teavent(self, teavent: Teavent):
         log.info(f"Handle teavent {teavent}")
 
