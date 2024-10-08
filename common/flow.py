@@ -20,8 +20,8 @@ class TeaventFlow(StateMachine):
     # transitions
     # fmt: off
     start_poll = created.to(poll_open)
-    confirm = poll_open.to.itself(internal=True) | planned.to.itself(internal=True)
-    reject = planned.to.itself(internal=True, validators="has_reserve") | poll_open.to.itself(internal=True)
+    confirm = created.to.itself(internal=True) | poll_open.to.itself(internal=True) | planned.to.itself(internal=True)
+    reject = created.to.itself(internal=True) | planned.to.itself(internal=True, validators="has_reserve") | poll_open.to.itself(internal=True)
     stop_poll = poll_open.to(planned, cond="ready") | poll_open.to(cancelled, unless="ready")
     cancel = cancelled.from_(created, poll_open, planned)
     start_ = planned.to(started)
