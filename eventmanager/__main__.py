@@ -33,11 +33,9 @@ async def main():
     async with connection:
         channel = await connection.channel()
 
-        teavents_q = await channel.declare_queue("teavents", durable=True)
         outgoing_updates_q = await channel.declare_queue(
             "outgoing_updates", durable=True
         )
-        await channel.set_qos(prefetch_size=0)
 
         protocol = RmqProtocol(outgoing_updates_q, channel, executor=executor)
 
@@ -60,6 +58,10 @@ async def main():
 
         # HACK: real exception might be not pickle-serializable, rethrow it as RuntimeError
         @rethrow_exceptions_as(cls=RuntimeError)
+        def manage_teavent(*, teavent: Teavent):
+            return manager.handle_teavent(teavent)
+
+        @rethrow_exceptions_as(cls=RuntimeError)
         def user_action(type: str, user_id: str, teavent_id: str):
             return manager.handle_user_action(
                 type=type, user_id=user_id, teavent_id=teavent_id
@@ -70,16 +72,9 @@ async def main():
 
         await rpc.register("list_teavents", list_teavents, auto_delete=True)
         await rpc.register("get_teavent", get_teavent, auto_delete=True)
+        await rpc.register("manage_teavent", manage_teavent, auto_delete=True)
         await rpc.register("user_action", user_action, auto_delete=True)
         await rpc.register("tasks", tasks, auto_delete=True)
-
-        logging.info("Register consumers")
-
-        @rethrow_exceptions_as(cls=RuntimeError)
-        def on_teavent(message: aio_pika.abc.AbstractIncomingMessage):
-            manager.handle_teavent(Teavent.from_message(message))
-
-        await teavents_q.consume(on_teavent, no_ack=True)
 
         await asyncio.Future()
 

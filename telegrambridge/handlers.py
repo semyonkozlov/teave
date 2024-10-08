@@ -1,4 +1,3 @@
-import base64
 from collections.abc import Coroutine
 import logging
 import re
@@ -10,57 +9,15 @@ from aiogram.filters import Command, CommandStart
 from aiogram.filters.command import CommandObject
 from aiogram_dialog import DialogManager, ShowMode, StartMode
 
-from common.errors import EventDescriptionParsingError
 from common.flow import TeaventFlow
-from common.models import Teavent
-from telegrambridge.dialogs import TeaventAdmin
+from telegrambridge.dialogs import ManageNewTeavents, TeaventAdmin
 from telegrambridge.filters import IsAdmin
 from telegrambridge.keyboards import IAmLateAction, PlannedPollAction, RegPollAction
-from telegrambridge.middlewares import CalendarMiddleware, RmqMiddleware
 from telegrambridge.views import TgTeaventViewFactory, render_teavents
 
 
 log = logging.getLogger(__name__)
 router = aiogram.Router()
-
-gcal_link = re.compile(r"https://calendar\.google\.com/calendar/u/0\?cid=(.*)")
-
-
-@router.message(F.text.regexp(gcal_link).as_("match"))
-async def handle_create_teavents_from_gcal_link(
-    message: aiogram.types.Message,
-    calendar: CalendarMiddleware,
-    teavents: RmqMiddleware,
-    match: re.Match[str],
-):
-    calendar_id = base64.b64decode(match.group(1)).decode()
-
-    # TODO avoid double managing the same calendar, but watch new events
-
-    gcal_events = await calendar.list_events(calendar_id)
-    teavents_to_publish = []
-    for item in gcal_events["items"]:
-        if item["status"] == "cancelled":
-            # TODO should not skip cancelled event as it could be cancelled recurring instance
-            log.warning(f"Skip cancelled event: {item}")
-            continue
-
-        try:
-            teavents_to_publish.append(
-                Teavent.from_gcal_event(item, communication_ids=[str(message.chat.id)])
-            )
-        except EventDescriptionParsingError as e:
-            event_link = item["htmlLink"]
-            await message.reply(text=f"Event {event_link} has bad description: {e}")
-            raise
-
-    for teavent in teavents_to_publish:
-        await teavents.publish(teavent)
-
-    num = len(teavents_to_publish)
-    links = "\n".join(e.link for e in teavents_to_publish)
-    await message.reply(text=f"Got {num} teavents:\n {links}")
-
 
 deep_link = re.compile(r"(.*)_(.*)")
 
@@ -136,6 +93,23 @@ async def handle_command_teavents(
 ):
     content = render_teavents(await list_teavents())
     await message.reply(**content.as_kwargs())
+
+
+@router.message(Command("new"))
+async def handle_command_new(
+    message: aiogram.types.Message,
+    dialog_manager: DialogManager,
+):
+    await dialog_manager.start(
+        ManageNewTeavents.ask_for_schedule,
+        mode=StartMode.RESET_STACK,
+        show_mode=ShowMode.DELETE_AND_SEND,
+    )
+
+    try:
+        await message.delete()
+    except:
+        log.exception("Can't delete message")
 
 
 @router.message(Command(re.compile("settings_(.*)")), IsAdmin())

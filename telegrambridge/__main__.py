@@ -62,6 +62,7 @@ async def main():
             view_factory=view_factory,
             list_teavents=rpc.proxy.list_teavents,
             get_teavent=rpc.proxy.get_teavent,
+            manage_teavent=rpc.proxy.manage_teavent,
             user_action=rpc.proxy.user_action,
             tasks=rpc.proxy.tasks,
         )
@@ -69,6 +70,7 @@ async def main():
         logging.info("Set up dialogs")
         aiogram_dialog.setup_dialogs(dp)
         dp.include_router(dialogs.admin_dialog())
+        dp.include_router(dialogs.new_teavents_dialog())
 
         logging.info("Set up bot handlers")
         dp.include_router(handlers.router)

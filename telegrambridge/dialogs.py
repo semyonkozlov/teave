@@ -1,5 +1,9 @@
+import base64
 import logging
+import operator
+import re
 
+from aiogram import F
 from decorator import decorator
 from aiogram.filters.state import StatesGroup, State
 from aiogram.types import CallbackQuery, Message
@@ -9,6 +13,7 @@ from aiogram_dialog.widgets.kbd import (
     Select,
     Group,
     Button,
+    Next,
     Back,
     SwitchTo,
     Cancel,
@@ -16,6 +21,7 @@ from aiogram_dialog.widgets.kbd import (
 )
 from aiogram_dialog.widgets.input import TextInput
 
+from common.errors import EventDescriptionParsingError
 from common.models import Teavent
 
 log = logging.getLogger(__name__)
@@ -273,5 +279,163 @@ def admin_dialog() -> Dialog:
         add_participants(),
         kick_participants(),
         on_start=on_start,
+        on_close=on_close,
+    )
+
+
+class ManageNewTeavents(StatesGroup):
+    ask_for_schedule = State()
+    confirm_fetched_teavents = State()
+    ask_for_chats = State()
+
+
+async def fetch_teavents(
+    message: Message,
+    widget: TextInput,
+    manager: DialogManager,
+    match: re.Match[str],
+):
+    calendar = manager.middleware_data["calendar"]
+    calendar_id = base64.b64decode(match.group(1)).decode()
+
+    # TODO avoid double managing the same calendar, but watch new events
+
+    gcal_events = await calendar.list_events(calendar_id)
+
+    items = manager.dialog_data["gcal_items"] = gcal_events["items"]
+    manager.dialog_data["gcal_events_count"] = len(items)
+
+    await manager.next()
+
+
+gcal_link = re.compile(r"https://calendar\.google\.com/calendar/u/0\?cid=(.*)")
+
+
+class BadCalendarLink(ValueError):
+    """Input is not a correct calendar link"""
+
+
+def match_link(input: str) -> re.Match[str]:
+    match = gcal_link.match(input)
+    if match is None:
+        raise BadCalendarLink(f"'{input}' is not valid gcal link")
+    return match
+
+
+async def show_error(
+    message: Message,
+    widget: TextInput,
+    manager: DialogManager,
+    error: BadCalendarLink,
+):
+    await message.reply(str(error))
+
+
+def ask_for_schedule() -> Window:
+    return Window(
+        Const("Пришлите мне ссылку c расписанием"),
+        TextInput(
+            id="provide_teavents.input",
+            type_factory=match_link,
+            on_success=fetch_teavents,
+            on_error=show_error,
+        ),
+        Cancel(
+            Const("Отмена"),
+        ),
+        state=ManageNewTeavents.ask_for_schedule,
+    )
+
+
+async def parse_teavents(
+    callback: CallbackQuery, button: Button, manager: DialogManager
+):
+    teavents = manager.dialog_data["teavents"] = []
+
+    for item in manager.dialog_data["gcal_items"]:
+        if item["status"] == "cancelled":
+            # TODO should not skip cancelled event as it could be cancelled recurring instance
+            log.warning(f"Skip cancelled event: {item}")
+            continue
+
+        try:
+            teavents.append(Teavent.from_gcal_event(item))
+        except EventDescriptionParsingError as e:
+            await callback.message.answer(str(e))
+            raise
+
+
+def confirm_fetched_teavents() -> Window:
+    return Window(
+        Format("Вижу {dialog_data[gcal_events_count]} событий. Добавить их в бота?"),
+        Next(
+            Const("Добавить"),
+            on_click=parse_teavents,
+        ),
+        Cancel(
+            Const("Отмена"),
+        ),
+        state=ManageNewTeavents.confirm_fetched_teavents,
+    )
+
+
+async def start_managing_teavents(
+    callback: CallbackQuery, button: Button, manager: DialogManager
+):
+    mselect: Multiselect = manager.find("ask_for_chats.mselect")
+    # TODO: get chats from mselect
+
+    communication_ids = [str(callback.message.chat.id)]
+
+    manage_teavent = manager.middleware_data["manage_teavent"]
+
+    for teavent in manager.dialog_data["teavents"]:
+        try:
+            teavent.communication_ids = communication_ids
+            await manage_teavent(teavent=teavent)
+        except Exception as e:
+            await manager.done(e)
+
+    await manager.done()
+
+
+async def get_bot_chats(**kwargs):
+    # TODO get chats from db
+    bot_chats = []
+
+    return {
+        "bot_chats": bot_chats,
+        "count": len(bot_chats),
+    }
+
+
+def ask_for_chats() -> Window:
+    return Window(
+        Format("В каких чатах запускать голосование?"),
+        Multiselect(
+            Format("✓ {item[1]}"),
+            Format("{item[1]}"),
+            id="ask_for_chats.mselect",
+            item_id_getter=lambda x: operator.itemgetter(0),
+            items="bot_chats",
+        ),
+        Button(
+            Const("Выбрать"),
+            id="ask_for_chats.confirm",
+            on_click=start_managing_teavents,
+        ),
+        Cancel(
+            Const("Отмена"),
+        ),
+        getter=get_bot_chats,
+        state=ManageNewTeavents.ask_for_chats,
+    )
+
+
+def new_teavents_dialog() -> Dialog:
+    return Dialog(
+        ask_for_schedule(),
+        confirm_fetched_teavents(),
+        ask_for_chats(),
         on_close=on_close,
     )

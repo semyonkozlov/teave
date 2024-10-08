@@ -69,9 +69,7 @@ class Teavent(TeaveModel):
     model_config = {"extra": "forbid", "populate_by_name": True}
 
     @staticmethod
-    def from_gcal_event(
-        gcal_event_item: dict[str, str], communication_ids: list[str]
-    ) -> "Teavent":
+    def from_gcal_event(gcal_event_item: dict[str, str]) -> "Teavent":
         _ = gcal_event_item
 
         description = _["description"].replace("\xa0", " ")
@@ -95,7 +93,7 @@ class Teavent(TeaveModel):
             recurring_event_id=_.get("recurringEventId"),
             original_start_time=original_start_time,
             config=TeaventConfig.from_description(description),
-            communication_ids=communication_ids,
+            communication_ids=[],
         )
 
     @property

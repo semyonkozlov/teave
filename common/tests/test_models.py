@@ -38,7 +38,7 @@ def test_config_from_description(description: str):
 
 def test_teavent_from_gcal_event(gcal_event_items):
     for item in gcal_event_items:
-        Teavent.from_gcal_event(item, communication_ids=[])
+        Teavent.from_gcal_event(item)
 
 
 @pytest.fixture
