@@ -229,8 +229,3 @@ async def handle_i_am_late_action(
 @router.message(Command("tasks"), IsAdmin())
 async def handle_tasks(message: aiogram.types.Message, tasks: Coroutine):
     await message.reply(str(await tasks()))
-
-
-@router.message()
-async def handle_any_message(message: aiogram.types.Message):
-    await message.reply(text="TODO Default handler")
