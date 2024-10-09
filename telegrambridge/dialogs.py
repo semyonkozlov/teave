@@ -156,7 +156,7 @@ async def do_add(
         )
 
     await message.delete()
-    await manager.switch_to(TeaventAdmin.teavent_settings)
+    await manager.done()
 
 
 def add_participants() -> Window:
@@ -213,8 +213,7 @@ async def do_kick_checked(
     )
 
     await mselect.reset_checked()
-
-    await callback.answer("Готово", show_alert=True)
+    await manager.done()
 
 
 async def do_kick_input(
@@ -230,6 +229,7 @@ async def do_kick_input(
     )
 
     await message.delete()
+    await manager.done()
 
 
 def kick_participants() -> Window:
