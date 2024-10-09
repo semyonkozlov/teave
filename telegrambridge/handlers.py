@@ -95,7 +95,7 @@ async def handle_command_teavents(
     await message.reply(**content.as_kwargs())
 
 
-@router.message(Command("new"))
+@router.message(Command("new"), IsAdmin())
 async def handle_command_new(
     message: aiogram.types.Message,
     dialog_manager: DialogManager,

@@ -3,7 +3,6 @@ import logging
 import operator
 import re
 
-from aiogram import F
 from decorator import decorator
 from aiogram.filters.state import StatesGroup, State
 from aiogram.types import CallbackQuery, Message, ReactionTypeEmoji
