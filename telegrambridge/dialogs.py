@@ -5,7 +5,7 @@ import re
 
 from decorator import decorator
 from aiogram.filters.state import StatesGroup, State
-from aiogram.types import CallbackQuery, Message, ReactionTypeEmoji
+from aiogram.types import CallbackQuery, Message
 from aiogram_dialog import Dialog, DialogManager, Window
 from aiogram_dialog.widgets.text import Const, Format
 from aiogram_dialog.widgets.kbd import (
@@ -155,7 +155,7 @@ async def do_add(
             teavent_id=teavent_id,
         )
 
-    await message.react([ReactionTypeEmoji(emoji="👍")])
+    await message.delete()
     await manager.switch_to(TeaventAdmin.teavent_settings)
 
 
@@ -212,6 +212,8 @@ async def do_kick_checked(
         teavent_id=manager.dialog_data["selected_teavent_id"],
     )
 
+    await mselect.reset_checked()
+
     await callback.answer("Готово", show_alert=True)
 
 
@@ -227,7 +229,7 @@ async def do_kick_input(
         teavent_id=manager.dialog_data["selected_teavent_id"],
     )
 
-    await message.react([ReactionTypeEmoji(emoji="👍")])
+    await message.delete()
 
 
 def kick_participants() -> Window:
