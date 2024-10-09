@@ -3,8 +3,8 @@ import logging
 import os
 
 import aiogram
+from aiogram.fsm.storage.base import DefaultKeyBuilder
 from aiogram.fsm.storage.mongo import MongoStorage
-from aiogram.fsm.storage.memory import MemoryStorage
 import aiogram_dialog
 import aio_pika
 import motor.motor_asyncio as aio_mongo
@@ -60,9 +60,9 @@ async def main():
         calendar_api = await aiogoogle.discover("calendar", "v3")
 
         dp = aiogram.Dispatcher(
-            # TODO replace storage
-            # storage=MongoStorage(mongoc),
-            storage=MemoryStorage(),
+            storage=MongoStorage(
+                mongoc, key_builder=DefaultKeyBuilder(with_destiny=True)
+            ),
             view_factory=view_factory,
             list_teavents=rpc.proxy.list_teavents,
             get_teavent=rpc.proxy.get_teavent,
