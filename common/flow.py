@@ -52,7 +52,6 @@ class TeaventFlow(StateMachine):
             raise TeaventIsInFinalState(model)
 
     @recreate.on
-    @init.on
     def adjust_timings(self, model: Teavent, now: datetime, recurring_exceptions: list):
         if model.is_reccurring:
             model.adjust(now, recurring_exceptions)

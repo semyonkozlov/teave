@@ -1,4 +1,5 @@
 from datetime import datetime
+import logging
 
 import pytest
 
@@ -14,7 +15,7 @@ class FakeExecutor(Executor):
         super().__init__()
 
     def schedule(self, fn, group_id: str, name: str, delay_seconds: int):
-        self._add_task(fn, group_id, name)
+        self._add_task((fn, delay_seconds), group_id, name)
 
     def cancel(self, group_id: str):
         self._pop_group(group_id)
@@ -28,7 +29,8 @@ class FakeExecutor(Executor):
 
         self._tasks.clear()
 
-        for fn in tasks:
+        for fn, delay in tasks:
+            logging.info(f"Executing {fn} delay={delay}")
             fn()
 
 
@@ -75,5 +77,6 @@ def test_handle_started_teavent_after_end(
     assert teavent.end < fake_executor.now(teavent.tz)
 
     manager.handle_teavent(teavent)
+
     fake_executor.execute_current_tasks()
-    assert teavent.state == "ended"
+    assert teavent.state == "created"

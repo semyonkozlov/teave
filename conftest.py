@@ -5,7 +5,7 @@ import pytest
 from common.models import Teavent, TeaventConfig
 
 
-def _from_request(request, key, default):
+def _from_indirect(request, key, default):
     try:
         return request.param[key]
     except (AttributeError, KeyError):
@@ -27,7 +27,7 @@ def teavent(request):
             2024, 7, 31, 21, 0, tzinfo=timezone(timedelta(hours=4))
         ),
         participant_ids=[],
-        state=_from_request(request, "state", "created"),
+        state=_from_indirect(request, "state", "created"),
         config=TeaventConfig(max=5, min=3, start_poll_at="11:00", stop_poll_at="14:00"),
         communication_ids=[],
     )
