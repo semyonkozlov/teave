@@ -59,7 +59,7 @@ async def main():
         # HACK: real exception might be not pickle-serializable, rethrow it as RuntimeError
         @rethrow_exceptions_as(cls=RuntimeError)
         def manage_teavent(*, teavent: Teavent):
-            return manager.handle_teavent(teavent)
+            return manager.handle_teavent(teavent, initial_adjust=True)
 
         @rethrow_exceptions_as(cls=RuntimeError)
         def user_action(type: str, user_id: str, teavent_id: str):

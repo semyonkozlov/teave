@@ -313,6 +313,7 @@ async def fetch_teavents(
     items = manager.dialog_data["gcal_items"] = gcal_events["items"]
     manager.dialog_data["gcal_events_count"] = len(items)
 
+    await message.delete()
     await manager.next()
 
 
@@ -367,7 +368,7 @@ async def parse_teavents(
             continue
 
         try:
-            teavents.append(Teavent.from_gcal_event(item))
+            teavents.append(Teavent.from_gcal_event(item).model_dump_json())
         except EventDescriptionParsingError as e:
             await callback.message.answer(str(e))
             raise
@@ -397,8 +398,9 @@ async def start_managing_teavents(
 
     manage_teavent = manager.middleware_data["manage_teavent"]
 
-    for teavent in manager.dialog_data["teavents"]:
+    for teavent_json in manager.dialog_data["teavents"]:
         try:
+            teavent = Teavent.model_validate_json(teavent_json)
             teavent.communication_ids = communication_ids
             await manage_teavent(teavent=teavent)
         except Exception as e:
@@ -428,7 +430,7 @@ def ask_for_chats() -> Window:
             items="bot_chats",
         ),
         Button(
-            Const("Выбрать"),
+            Const("В этом чате"),
             id="ask_for_chats.confirm",
             on_click=start_managing_teavents,
         ),

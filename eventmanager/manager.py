@@ -28,8 +28,16 @@ class TeaventManager:
     def get_teavent(self, id: str) -> Teavent:
         return self._statemachines[id].teavent
 
-    def handle_teavent(self, teavent: Teavent):
+    def handle_teavent(self, teavent: Teavent, initial_adjust=False):
         log.info(f"Handle teavent {teavent}")
+
+        if initial_adjust and teavent.is_reccurring:
+            # TODO: ugly
+            log.info("Make initial timings adjustment")
+            teavent.adjust(
+                self._executor.now(teavent.tz),
+                recurring_exceptions=self._get_recurring_exceptions(teavent.id),
+            )
 
         if teavent.id not in self._statemachines:
             self._manage(teavent)
