@@ -1,7 +1,5 @@
-from collections.abc import Callable
 from datetime import datetime
 
-from attr import define
 import pytest
 
 from common.executors import Executor
@@ -35,12 +33,12 @@ class FakeExecutor(Executor):
 
 
 @pytest.fixture
-def fake_executor(request):
+def fake_executor(request: pytest.FixtureRequest):
     return FakeExecutor(now=request.param["now"])
 
 
 @pytest.fixture
-def manager(fake_executor):
+def manager(fake_executor: FakeExecutor):
     return TeaventManager(executor=fake_executor)
 
 
@@ -64,3 +62,18 @@ def test_handle_created_teavent_after_start_poll_before_start(
     # cancel and recreate teavent according to rrule
     assert teavent.state == "created"
     assert fake_executor.now(teavent.tz) < teavent.start_poll_at
+
+
+@pytest.mark.parametrize("teavent", [{"state": "started"}], indirect=True)
+@pytest.mark.parametrize(
+    "fake_executor", [{"now": datetime(2024, 7, 31, 23, 30)}], indirect=True
+)
+def test_handle_started_teavent_after_end(
+    manager: TeaventManager, teavent: Teavent, fake_executor: FakeExecutor
+):
+    assert teavent.state == "started"
+    assert teavent.end < fake_executor.now(teavent.tz)
+
+    manager.handle_teavent(teavent)
+    fake_executor.execute_current_tasks()
+    assert teavent.state == "ended"
