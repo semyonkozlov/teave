@@ -13,11 +13,7 @@ from common.models import Teavent
 from telegrambridge.commands import set_default_commands
 import telegrambridge.handlers as handlers
 import telegrambridge.dialogs as dialogs
-from telegrambridge.middlewares import (
-    CalendarMiddleware,
-    RmqMiddleware,
-    init_aiogoogle,
-)
+from telegrambridge.middlewares import CalendarMiddleware, init_aiogoogle
 from telegrambridge.views import TgTeaventViewFactory
 
 
@@ -32,7 +28,6 @@ async def main():
         channel = await rmq_connection.channel()
         await channel.set_qos(prefetch_count=0)
 
-        teavents_q = await channel.declare_queue("teavents", durable=True)
         outgoing_updates_q = await channel.declare_queue(
             "outgoing_updates", durable=True
         )
@@ -80,7 +75,6 @@ async def main():
         dp.include_router(handlers.router)
 
         logging.info("Init middlewares")
-        dp.message.middleware(RmqMiddleware(teavents_q))
         dp.message.middleware(CalendarMiddleware(aiogoogle, calendar_api))
 
         await bot.delete_webhook(drop_pending_updates=True)

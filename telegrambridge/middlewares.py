@@ -1,31 +1,11 @@
-from collections.abc import Coroutine
 import json
 import datetime
 from datetime import datetime
 
 from attr import define
-import pydantic
 import aiogram
-import aio_pika
 from aiogoogle import GoogleAPI, Aiogoogle
 from aiogoogle.auth.creds import ServiceAccountCreds
-
-from common.pika_pydantic import ModelMessage
-
-
-@define
-class RmqMiddleware(aiogram.BaseMiddleware):
-    _queue: aio_pika.abc.AbstractQueue
-
-    async def __call__(self, handler, event: aiogram.types.Message, data: dict):
-        data[self._queue.name] = self
-        return await handler(event, data)
-
-    async def publish(self, msg: pydantic.BaseModel):
-        await self._queue.channel.default_exchange.publish(
-            ModelMessage(msg),
-            routing_key=self._queue.name,
-        )
 
 
 def init_aiogoogle() -> Aiogoogle:
