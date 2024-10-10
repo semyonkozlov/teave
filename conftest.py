@@ -5,8 +5,15 @@ import pytest
 from common.models import Teavent, TeaventConfig
 
 
+def _from_request(request, key, default):
+    try:
+        return request.param[key]
+    except (AttributeError, KeyError):
+        return default
+
+
 @pytest.fixture
-def teavent():
+def teavent(request):
     return Teavent(
         id="2gud232jsatd8pmnu0mnng0if2",
         cal_id="1b9c486302b14656cfb10dbdc28240b39054fc6b2c2060928c4c5d0aeccbb4a2@g",
@@ -20,7 +27,7 @@ def teavent():
             2024, 7, 31, 21, 0, tzinfo=timezone(timedelta(hours=4))
         ),
         participant_ids=[],
-        state="created",
+        state=_from_request(request, "state", "created"),
         config=TeaventConfig(max=5, min=3, start_poll_at="11:00", stop_poll_at="14:00"),
         communication_ids=[],
     )
