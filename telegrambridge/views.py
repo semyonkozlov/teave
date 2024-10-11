@@ -14,7 +14,6 @@ from aiogram.utils.formatting import (
     Text,
     Underline,
 )
-from aiogram.utils.deep_linking import create_deep_link
 from attr import define
 
 from common.flow import TeaventFlow
@@ -162,10 +161,6 @@ class TgTeaventViewFactory:
 
 def _render_teavent(t: Teavent) -> Text:
     participants = t.effective_participant_ids or ["~"]
-    # TODO move 'teave_bot' to settings
-    cancel_deep_link = create_deep_link(
-        username="teave_bot", link_type="start", payload=f"cancel_{t.id}"
-    )
 
     return as_section(
         TextLink(t.summary, url=t.link),
