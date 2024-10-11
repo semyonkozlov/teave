@@ -6,7 +6,7 @@ from common.models import Teavent
 from common.flow import TeaventFlow
 
 
-@define(eq=False)  # eq=False for hashing by id
+@define(eq=False)  # eq=False is required to be listener
 class TeaventsDB:
     _storage: aio_mongo.AsyncIOMotorCollection
     _executor: Executor

@@ -13,7 +13,7 @@ from common.flow import TeaventFlow
 from telegrambridge.dialogs import ManageNewTeavents, TeaventAdmin
 from telegrambridge.filters import IsAdmin
 from telegrambridge.keyboards import IAmLateAction, PlannedPollAction, RegPollAction
-from telegrambridge.views import TgTeaventViewFactory, render_teavents
+from telegrambridge.views import TeaventPresenter, render_teavents
 
 
 log = logging.getLogger(__name__)
@@ -79,12 +79,9 @@ async def handle_view(
     message: aiogram.types.Message,
     command: CommandObject,
     get_teavent: Coroutine,
-    view_factory: TgTeaventViewFactory,
+    presenter: TeaventPresenter,
 ):
-    teavent = await get_teavent(id=command.args)
-
-    view = view_factory.create_view(teavent.state)
-    await view.show(teavent)
+    await presenter._show(await get_teavent(id=command.args))
 
 
 @router.message(Command("teavents"))
@@ -149,63 +146,13 @@ async def handle_command_settings(
 
 
 @router.callback_query(RegPollAction.filter())
-async def handle_reg_poll_action(
-    callback: aiogram.types.CallbackQuery,
-    callback_data: RegPollAction,
-    user_action: Coroutine,
-    view_factory: TgTeaventViewFactory,
-):
-    try:
-        updated_teavent = await user_action(
-            type=callback_data.action,
-            user_id=f"@{callback.from_user.username}",
-            teavent_id=callback_data.teavent_id,
-        )
-    except Exception as e:
-        return await callback.answer(str(e), show_alert=True)
-
-    view = view_factory.create_view(TeaventFlow.poll_open.value)
-
-    await view.update(
-        callback.message,
-        teavent=updated_teavent,
-    )
-
-    return await callback.answer()
-
-
 @router.callback_query(PlannedPollAction.filter())
-async def handle_planned_poll_action(
-    callback: aiogram.types.CallbackQuery,
-    callback_data: PlannedPollAction,
-    user_action: Coroutine,
-    view_factory: TgTeaventViewFactory,
-):
-    try:
-        updated_teavent = await user_action(
-            type=callback_data.action,
-            user_id=f"@{callback.from_user.username}",
-            teavent_id=callback_data.teavent_id,
-        )
-    except Exception as e:
-        return await callback.answer(str(e), show_alert=True)
-
-    view = view_factory.create_view(TeaventFlow.planned.value)
-
-    await view.update(
-        callback.message,
-        teavent=updated_teavent,
-    )
-
-    return await callback.answer()
-
-
 @router.callback_query(IAmLateAction.filter())
-async def handle_i_am_late_action(
+async def handle_button_click(
     callback: aiogram.types.CallbackQuery,
-    callback_data: IAmLateAction,
+    callback_data,
     user_action: Coroutine,
-    view_factory: TgTeaventViewFactory,
+    presenter: TeaventPresenter,
 ):
     try:
         updated_teavent = await user_action(
@@ -216,13 +163,7 @@ async def handle_i_am_late_action(
     except Exception as e:
         return await callback.answer(str(e), show_alert=True)
 
-    view = view_factory.create_view(TeaventFlow.started.value)
-
-    await view.update(
-        callback.message,
-        teavent=updated_teavent,
-    )
-
+    await presenter.handle_update(updated_teavent)
     return await callback.answer()
 
 

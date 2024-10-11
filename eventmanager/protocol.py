@@ -11,7 +11,7 @@ from common.pika_pydantic import ModelMessage
 log = logging.getLogger(__name__)
 
 
-@define(eq=False)  # eq=False for hashing by id
+@define(eq=False)  # eq=False is required to be listener
 class RmqProtocol:
     _outgoing_updates_queue: aio_pika.abc.AbstractQueue
     _channel: aio_pika.abc.AbstractChannel

@@ -14,7 +14,7 @@ from telegrambridge.commands import set_default_commands
 import telegrambridge.handlers as handlers
 import telegrambridge.dialogs as dialogs
 from telegrambridge.middlewares import CalendarMiddleware, init_aiogoogle
-from telegrambridge.views import TgTeaventViewFactory
+from telegrambridge.views import TeaventPresenter
 
 
 async def main():
@@ -39,11 +39,10 @@ async def main():
         await set_default_commands(bot)
 
         logging.info("Init views")
-        view_factory = TgTeaventViewFactory(bot)
+        presenter = TeaventPresenter(bot, mongoc, db_name="telegrambridge")
 
         async def on_teavent_update(message: aio_pika.abc.AbstractIncomingMessage):
-            teavent = Teavent.from_message(message)
-            await view_factory.create_view(teavent.state).show(teavent)
+            await presenter.handle_update(Teavent.from_message(message))
 
         logging.info("Register consumers")
         await outgoing_updates_q.consume(on_teavent_update, no_ack=True)
@@ -56,9 +55,11 @@ async def main():
 
         dp = aiogram.Dispatcher(
             storage=MongoStorage(
-                mongoc, key_builder=DefaultKeyBuilder(with_destiny=True)
+                mongoc,
+                db_name="telegrambridge",
+                key_builder=DefaultKeyBuilder(with_destiny=True),
             ),
-            view_factory=view_factory,
+            presenter=presenter,
             list_teavents=rpc.proxy.list_teavents,
             get_teavent=rpc.proxy.get_teavent,
             manage_teavent=rpc.proxy.manage_teavent,

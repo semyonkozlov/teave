@@ -2,8 +2,8 @@ from abc import ABC, abstractmethod
 from contextlib import suppress
 
 import aiogram
+import motor.motor_asyncio as aio_mongo
 from aiogram.exceptions import TelegramBadRequest
-from aiogram.types.message import Message
 from aiogram.utils.formatting import (
     as_list,
     as_section,
@@ -26,25 +26,7 @@ from telegrambridge.keyboards import (
 
 
 @define
-class TgTeaventView(ABC):
-    _bot: aiogram.Bot
-
-    async def show(self, teavent: Teavent):
-        for chat_id in teavent.communication_ids:
-            await self._bot.send_message(
-                chat_id=chat_id,
-                # the order of following parameters MATTERS
-                reply_markup=self.keyboard(teavent),
-                **self.text(teavent).as_kwargs(),
-            )
-
-    async def update(self, message: aiogram.types.Message, teavent: Teavent):
-        with suppress(TelegramBadRequest):
-            await message.edit_text(
-                reply_markup=self.keyboard(teavent),
-                **self.text(teavent).as_kwargs(),
-            )
-
+class TeaventView(ABC):
     @abstractmethod
     def text(self, t: Teavent) -> Text: ...
 
@@ -52,21 +34,7 @@ class TgTeaventView(ABC):
     def keyboard(self, t: Teavent): ...
 
 
-class NoOpView(TgTeaventView):
-    async def show(self, teavent: Teavent):
-        pass
-
-    async def update(self, message: Message, teavent: Teavent):
-        pass
-
-    def text(self, t: Teavent) -> Text:
-        return NotImplemented
-
-    def keyboard(self, t: Teavent):
-        return NotImplemented
-
-
-class RegPollView(TgTeaventView):
+class RegPollView(TeaventView):
     def text(self, t: Teavent) -> Text:
         participants = t.effective_participant_ids or ["~"]
         reserve = t.reserve_participant_ids or ["~"]
@@ -95,7 +63,7 @@ class RegPollView(TgTeaventView):
         return make_regpoll_keyboard(t.id)
 
 
-class PlannedView(TgTeaventView):
+class PlannedView(TeaventView):
     def text(self, t: Teavent) -> Text:
         participants = t.effective_participant_ids or ["~"]
         reserve = t.reserve_participant_ids or ["~"]
@@ -122,7 +90,7 @@ class PlannedView(TgTeaventView):
         return make_plannedpoll_keyboard(t.id)
 
 
-class StartedView(TgTeaventView):
+class StartedView(TeaventView):
     def text(self, t: Teavent) -> Text:
         text = Text("Событие ", TextLink(t.summary, url=t.link), " началось")
         if t.latees:
@@ -135,7 +103,7 @@ class StartedView(TgTeaventView):
         return make_started_keyboard(t.id)
 
 
-class CancelledView(TgTeaventView):
+class CancelledView(TeaventView):
     def text(self, t: Teavent) -> Text:
         return Text("Событие ", TextLink(t.summary, url=t.link), Bold(" ОТМЕНЕНО"))
 
@@ -144,19 +112,92 @@ class CancelledView(TgTeaventView):
 
 
 @define
-class TgTeaventViewFactory:
+class TeaventPresenter:
     _bot: aiogram.Bot
 
+    _client: aio_mongo.AsyncIOMotorClient
+    _db_name: str
+
     _state_to_view = {
-        TeaventFlow.poll_open.value: RegPollView,
-        TeaventFlow.planned.value: PlannedView,
-        TeaventFlow.started.value: StartedView,
-        TeaventFlow.cancelled.value: CancelledView,
+        TeaventFlow.poll_open.value: RegPollView(),
+        TeaventFlow.planned.value: PlannedView(),
+        TeaventFlow.started.value: StartedView(),
+        TeaventFlow.cancelled.value: CancelledView(),
     }
 
-    def create_view(self, state: str) -> TgTeaventView:
-        view_cls = self._state_to_view.get(state) or NoOpView
-        return view_cls(self._bot)
+    async def handle_update(self, teavent: Teavent):
+        async with await self._client.start_session() as session:
+            async with session.start_transaction():
+                await self._handle_update(teavent, session)
+
+    async def _handle_update(self, teavent: Teavent, session):
+        t2v = self._client.get_database(self._db_name).get_collection(
+            "teavent_to_views"
+        )
+
+        if data := await t2v.find_one({"_id": teavent.id}, session=session):
+            if data["state"] == teavent.state:
+                await self._update(data["chat_message_ids"], teavent)
+            else:
+                self._cleanup(data["chat_message_ids"])
+                chat_message_ids = await self._show(teavent)
+                t2v.update_one(
+                    {
+                        "_id": teavent.id,
+                        "state": teavent.state,
+                        "chat_message_ids": chat_message_ids,
+                    },
+                    session=session,
+                )
+
+        else:
+            chat_message_ids = await self._show(teavent)
+            await t2v.insert_one(
+                {
+                    "_id": teavent.id,
+                    "state": teavent.state,
+                    "chat_message_ids": chat_message_ids,
+                },
+                session=session,
+            )
+
+    async def _show(self, teavent: Teavent):
+        chat_message_ids = []
+
+        if view := self._get_view(teavent.state):
+            for chat_id in teavent.communication_ids:
+                message = await self._bot.send_message(
+                    chat_id=chat_id,
+                    # the order of following parameters MATTERS
+                    reply_markup=view.keyboard(teavent),
+                    **view.text(teavent).as_kwargs(),
+                )
+                chat_message_ids.append((chat_id, str(message.message_id)))
+
+        return chat_message_ids
+
+    async def _update(self, chat_message_ids: list, teavent: Teavent):
+        view = self._get_view(teavent.state)
+        assert view, "we should have view if we are trying to update something"
+
+        for chat_id, message_id in chat_message_ids:
+            with suppress(TelegramBadRequest):
+                await self._bot.edit_message_text(
+                    chat_id=chat_id,
+                    message_id=message_id,
+                    reply_markup=view.keyboard(teavent),
+                    **view.text(teavent).as_kwargs(),
+                )
+
+    async def _cleanup(self, chat_message_ids: list):
+        for chat_id, message_id in chat_message_ids:
+            await self._bot.delete_message(
+                chat_id=chat_id,
+                message_id=message_id,
+            )
+
+    def _get_view(self, state: str) -> TeaventView | None:
+        return self._state_to_view.get(state)
 
 
 def _render_teavent(t: Teavent) -> Text:
