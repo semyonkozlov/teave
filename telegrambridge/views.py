@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import asyncio
 from contextlib import suppress
 
 import aiogram
@@ -118,6 +119,9 @@ class TeaventPresenter:
     _client: aio_mongo.AsyncIOMotorClient
     _db_name: str
 
+    # TODO try to replace with MongoDB transaction
+    _update_lock = asyncio.Lock()
+
     _state_to_view = {
         TeaventFlow.poll_open.value: RegPollView(),
         TeaventFlow.planned.value: PlannedView(),
@@ -126,28 +130,28 @@ class TeaventPresenter:
     }
 
     async def handle_update(self, teavent: Teavent):
-        async with await self._client.start_session() as session:
-            async with session.start_transaction():
-                await self._handle_update(teavent, session)
+        async with self._update_lock:
+            await self._handle_update(teavent, lock=self._update_lock)
 
-    async def _handle_update(self, teavent: Teavent, session):
+    async def _handle_update(self, teavent: Teavent, lock: asyncio.Lock):
         t2v = self._client.get_database(self._db_name).get_collection(
             "teavent_to_views"
         )
 
-        if data := await t2v.find_one({"_id": teavent.id}, session=session):
+        if data := await t2v.find_one({"_id": teavent.id}):
             if data["state"] == teavent.state:
                 await self._update(data["chat_message_ids"], teavent)
             else:
-                self._cleanup(data["chat_message_ids"])
+                await self._cleanup(data["chat_message_ids"])
                 chat_message_ids = await self._show(teavent)
-                t2v.update_one(
-                    {
-                        "_id": teavent.id,
-                        "state": teavent.state,
-                        "chat_message_ids": chat_message_ids,
+                await t2v.update_one(
+                    filter={"_id": teavent.id},
+                    update={
+                        "$set": {
+                            "state": teavent.state,
+                            "chat_message_ids": chat_message_ids,
+                        }
                     },
-                    session=session,
                 )
 
         else:
@@ -158,7 +162,6 @@ class TeaventPresenter:
                     "state": teavent.state,
                     "chat_message_ids": chat_message_ids,
                 },
-                session=session,
             )
 
     async def _show(self, teavent: Teavent):
@@ -172,7 +175,9 @@ class TeaventPresenter:
                     reply_markup=view.keyboard(teavent),
                     **view.text(teavent).as_kwargs(),
                 )
-                chat_message_ids.append((chat_id, str(message.message_id)))
+                message_id = str(message.message_id)
+                await self._bot.pin_chat_message(chat_id, message_id)
+                chat_message_ids.append((chat_id, message_id))
 
         return chat_message_ids
 
