@@ -41,7 +41,6 @@ class TeaventAdmin(StatesGroup):
     select_teavent = State()
     teavent_settings = State()
     confirm_cancel = State()
-    confirm_reset = State()
     add_participants = State()
     kick_participants = State()
 
@@ -156,7 +155,7 @@ async def do_add(
         )
 
     await message.delete()
-    await manager.done()
+    await manager.switch_to(TeaventAdmin.teavent_settings)
 
 
 def add_participants() -> Window:
@@ -213,7 +212,7 @@ async def do_kick_checked(
     )
 
     await mselect.reset_checked()
-    await manager.done()
+    await manager.switch_to(TeaventAdmin.teavent_settings)
 
 
 async def do_kick_input(
@@ -229,7 +228,7 @@ async def do_kick_input(
     )
 
     await message.delete()
-    await manager.done()
+    await manager.switch_to(TeaventAdmin.teavent_settings)
 
 
 def kick_participants() -> Window:
