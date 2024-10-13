@@ -189,7 +189,10 @@ async def get_partcipants(**kwargs):
     }
 
 
-async def _do_kick(user_action, participant_ids: list[str], teavent_id: str):
+async def _do_kick(manager: DialogManager, participant_ids: list[str]):
+    user_action = manager.middleware_data["user_action"]
+    teavent_id = manager.dialog_data["selected_teavent_id"]
+
     for participant_id in participant_ids:
         await user_action(
             type="reject",
@@ -205,11 +208,7 @@ async def do_kick_checked(
 ):
     mselect: Multiselect = manager.find("kick_participants.mselect")
 
-    await _do_kick(
-        user_action=manager.middleware_data["user_action"],
-        participant_ids=mselect.get_checked(),
-        teavent_id=manager.dialog_data["selected_teavent_id"],
-    )
+    await _do_kick(manager, participant_ids=mselect.get_checked())
 
     await mselect.reset_checked()
     await manager.switch_to(TeaventAdmin.teavent_settings)
@@ -221,11 +220,7 @@ async def do_kick_input(
     manager: DialogManager,
     data: str,
 ):
-    await _do_kick(
-        user_action=manager.middleware_data["user_action"],
-        participant_ids=[s.strip() for s in data.split(",")],
-        teavent_id=manager.dialog_data["selected_teavent_id"],
-    )
+    await _do_kick(manager, participant_ids=[s.strip() for s in data.split(",")])
 
     await message.delete()
     await manager.switch_to(TeaventAdmin.teavent_settings)

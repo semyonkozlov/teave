@@ -26,10 +26,9 @@ class RmqProtocol:
 
     # SM actions
 
-    def on_enter_state(self, source: State, state: State, model: Teavent):
-        if source != state:
-            self._executor.schedule(
-                self._publish_update(model.model_copy()),
-                group_id=f"{model.id}_pub",
-                name=state.value,
-            )
+    def after_transition(self, source: State, state: State, model: Teavent):
+        self._executor.schedule(
+            self._publish_update(model.model_copy()),
+            group_id=f"{model.id}_pub",
+            name=state.value,
+        )

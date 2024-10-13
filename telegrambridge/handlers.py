@@ -155,7 +155,7 @@ async def handle_button_click(
     presenter: TeaventPresenter,
 ):
     try:
-        updated_teavent = await user_action(
+        await user_action(
             type=callback_data.action,
             user_id=f"@{callback.from_user.username}",
             teavent_id=callback_data.teavent_id,
@@ -163,7 +163,6 @@ async def handle_button_click(
     except Exception as e:
         return await callback.answer(str(e), show_alert=True)
 
-    await presenter.handle_update(updated_teavent)
     return await callback.answer()
 
 

@@ -1,8 +1,11 @@
 from abc import ABC, abstractmethod
 import asyncio
 from contextlib import suppress
+from datetime import datetime, timedelta
 
 import aiogram
+import humanize
+from babel.dates import format_datetime
 import motor.motor_asyncio as aio_mongo
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.utils.formatting import (
@@ -25,6 +28,41 @@ from telegrambridge.keyboards import (
     make_started_keyboard,
 )
 
+humanize.i18n.activate("ru")
+
+
+def format_location(location: str) -> Text:
+    return as_key_value("Место", location)
+
+
+def format_start(dt: datetime) -> Text:
+    return as_key_value(
+        "Начало", format_datetime(dt, "EEEE, d MMMM, 'в' HH:mm", locale="ru_RU")
+    )
+
+
+def format_duration(td: timedelta) -> Text:
+    return as_key_value("Продолжительность", humanize.precisedelta(td, format="%0.0f"))
+
+
+def format_participants(t: Teavent) -> Text:
+    participants = t.effective_participant_ids or ["~"]
+    return as_marked_section(
+        f"Участники ({t.num_participants}/{t.config.max}, минимум {t.config.min}):",
+        *participants,
+        marker="  ",
+    )
+
+
+def format_reserve(t: Teavent) -> Text:
+    reserve = t.reserve_participant_ids or ["~"]
+
+    return as_marked_section(
+        "Резерв:",
+        *reserve,
+        marker="  ",
+    )
+
 
 @define
 class TeaventView(ABC):
@@ -37,26 +75,19 @@ class TeaventView(ABC):
 
 class RegPollView(TeaventView):
     def text(self, t: Teavent) -> Text:
-        participants = t.effective_participant_ids or ["~"]
-        reserve = t.reserve_participant_ids or ["~"]
-
         return as_section(
-            Bold("ЗАПИСЬ НА СОБЫТИЕ ", TextLink(t.summary, url=t.link)),
+            Bold(
+                "✏️ ЗАПИСЬ НА СОБЫТИЕ ",
+                TextLink(t.summary, url=t.link),
+            ),
             "\n",
             as_list(
-                as_key_value("Место", t.location),
-                as_key_value("Начало", t.start),
-                as_key_value("Продолжительность", t.duration),
-                as_marked_section(
-                    f"Участники ({t.num_participants}/{t.config.max}):",
-                    *participants,
-                    marker="  ",
-                ),
-                as_marked_section(
-                    "Резерв:",
-                    *reserve,
-                    marker="  ",
-                ),
+                format_location(t.location),
+                format_start(t.start),
+                format_duration(t.duration),
+                "\n",
+                format_participants(t),
+                format_reserve(t),
             ),
         )
 
@@ -142,8 +173,12 @@ class TeaventPresenter:
             if data["state"] == teavent.state:
                 await self._update(data["chat_message_ids"], teavent)
             else:
-                await self._cleanup(data["chat_message_ids"])
+                await self._unpin(data["chat_message_ids"])
+                with suppress(TelegramBadRequest):
+                    await self._clear_markup(data["chat_message_ids"])
+
                 chat_message_ids = await self._show(teavent)
+                await self._pin(chat_message_ids)
                 await t2v.update_one(
                     filter={"_id": teavent.id},
                     update={
@@ -156,6 +191,7 @@ class TeaventPresenter:
 
         else:
             chat_message_ids = await self._show(teavent)
+            await self._pin(chat_message_ids)
             await t2v.insert_one(
                 {
                     "_id": teavent.id,
@@ -171,13 +207,12 @@ class TeaventPresenter:
             for chat_id in teavent.communication_ids:
                 message = await self._bot.send_message(
                     chat_id=chat_id,
+                    disable_web_page_preview=True,
                     # the order of following parameters MATTERS
                     reply_markup=view.keyboard(teavent),
                     **view.text(teavent).as_kwargs(),
                 )
-                message_id = str(message.message_id)
-                await self._bot.pin_chat_message(chat_id, message_id)
-                chat_message_ids.append((chat_id, message_id))
+                chat_message_ids.append((chat_id, str(message.message_id)))
 
         return chat_message_ids
 
@@ -190,15 +225,23 @@ class TeaventPresenter:
                 await self._bot.edit_message_text(
                     chat_id=chat_id,
                     message_id=message_id,
+                    disable_web_page_preview=True,
                     reply_markup=view.keyboard(teavent),
                     **view.text(teavent).as_kwargs(),
                 )
 
-    async def _cleanup(self, chat_message_ids: list):
+    async def _pin(self, chat_message_ids: list):
         for chat_id, message_id in chat_message_ids:
-            await self._bot.delete_message(
-                chat_id=chat_id,
-                message_id=message_id,
+            await self._bot.pin_chat_message(chat_id, message_id)
+
+    async def _unpin(self, chat_message_ids: list):
+        for chat_id, message_id in chat_message_ids:
+            await self._bot.unpin_chat_message(chat_id=chat_id, message_id=message_id)
+
+    async def _clear_markup(self, chat_message_ids: list):
+        for chat_id, message_id in chat_message_ids:
+            await self._bot.edit_message_reply_markup(
+                chat_id=chat_id, message_id=message_id, reply_markup=None
             )
 
     def _get_view(self, state: str) -> TeaventView | None:
