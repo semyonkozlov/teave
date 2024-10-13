@@ -152,7 +152,6 @@ async def handle_button_click(
     callback: aiogram.types.CallbackQuery,
     callback_data,
     user_action: Coroutine,
-    presenter: TeaventPresenter,
 ):
     try:
         await user_action(

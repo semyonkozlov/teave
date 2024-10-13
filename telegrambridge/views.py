@@ -17,6 +17,7 @@ from aiogram.utils.formatting import (
     Bold,
     Text,
     Underline,
+    Italic,
 )
 from attr import define
 
@@ -37,7 +38,7 @@ def format_location(location: str) -> Text:
 
 def format_start(dt: datetime) -> Text:
     return as_key_value(
-        "Начало", format_datetime(dt, "EEEE, d MMMM, 'в' HH:mm", locale="ru_RU")
+        "Начало", format_datetime(dt, "EEEE, d MMMM, HH:mm", locale="ru_RU")
     )
 
 
@@ -78,7 +79,7 @@ class RegPollView(TeaventView):
         return as_section(
             Bold(
                 "✏️ ЗАПИСЬ НА СОБЫТИЕ ",
-                TextLink(t.summary, url=t.link),
+                TextLink(t.summary.upper(), url=t.link),
             ),
             "\n",
             as_list(
@@ -97,25 +98,25 @@ class RegPollView(TeaventView):
 
 class PlannedView(TeaventView):
     def text(self, t: Teavent) -> Text:
-        participants = t.effective_participant_ids or ["~"]
-        reserve = t.reserve_participant_ids or ["~"]
-
+        when = format_datetime(t.start, "d MMMM, в HH:mm", locale="ru_RU")
         return as_section(
             Bold(
-                TextLink(t.summary, url=t.link),
-                f" состоится {t.start.date()} в {t.start.time()}",
+                "✅ ",
+                TextLink(t.summary.upper(), url=t.link),
+                " СОСТОИТСЯ ",
+                when.upper(),
             ),
             "\n",
             as_list(
-                as_key_value("Место", t.location),
-                as_key_value("Продолжительность", t.duration),
-                as_marked_section(
-                    f"Участники ({t.num_participants}/{t.config.max}):",
-                    *participants,
-                    marker="  ",
-                ),
-                as_marked_section("Резерв:", *reserve, marker="  "),
+                format_location(t.location),
+                format_start(t.start),
+                format_duration(t.duration),
+                "\n",
+                format_participants(t),
+                format_reserve(t),
             ),
+            "\n\n",
+            Italic("Отказаться от участия можно только при наличии резерва"),
         )
 
     def keyboard(self, t: Teavent):
