@@ -9,10 +9,10 @@ services:
       rabbitmq:
         condition: service_healthy
 
-  matcher:
+  eventmanager:
     build:
       dockerfile: ./infra/Dockerfile
-    command: python -m matcher
+    command: python -m eventmanager
     depends_on:
       rabbitmq:
         condition: service_healthy 

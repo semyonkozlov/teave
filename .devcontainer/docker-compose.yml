@@ -24,4 +24,6 @@ services:
     command: /bin/sh -c "while sleep 1000; do :; done"
   matcher:
     profiles: [do_not_run]
+  eventmanager:
+    profiles: [do_not_run]
  
