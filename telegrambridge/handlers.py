@@ -89,7 +89,7 @@ async def handle_command_teavents(
     message: aiogram.types.Message, list_teavents: Coroutine
 ):
     content = render_teavents(await list_teavents())
-    await message.reply(**content.as_kwargs())
+    await message.reply(**content.as_kwargs(), disable_web_page_preview=True)
 
 
 @router.message(Command("new"), IsAdmin())

@@ -26,7 +26,7 @@ class RmqProtocol:
 
     # SM actions
 
-    def after_transition(self, source: State, state: State, model: Teavent):
+    def after_transition(self, state: State, model: Teavent):
         self._executor.schedule(
             self._publish_update(model.model_copy()),
             group_id=f"{model.id}_pub",

@@ -32,21 +32,21 @@ from telegrambridge.keyboards import (
 humanize.i18n.activate("ru")
 
 
-def format_location(location: str) -> Text:
+def _location(location: str) -> Text:
     return as_key_value("Место", location)
 
 
-def format_start(dt: datetime) -> Text:
+def _when(dt: datetime) -> Text:
     return as_key_value(
         "Начало", format_datetime(dt, "EEEE, d MMMM, HH:mm", locale="ru_RU")
     )
 
 
-def format_duration(td: timedelta) -> Text:
+def _duration(td: timedelta) -> Text:
     return as_key_value("Продолжительность", humanize.precisedelta(td, format="%0.0f"))
 
 
-def format_participants(t: Teavent) -> Text:
+def _participants(t: Teavent) -> Text:
     participants = t.effective_participant_ids or ["~"]
     return as_marked_section(
         f"Участники ({t.num_participants}/{t.config.max}, минимум {t.config.min}):",
@@ -55,7 +55,7 @@ def format_participants(t: Teavent) -> Text:
     )
 
 
-def format_reserve(t: Teavent) -> Text:
+def _reserve(t: Teavent) -> Text:
     reserve = t.reserve_participant_ids or ["~"]
 
     return as_marked_section(
@@ -63,6 +63,14 @@ def format_reserve(t: Teavent) -> Text:
         *reserve,
         marker="  ",
     )
+
+
+def _status(teavent_state: str) -> Text:
+    return as_key_value("Статус", teavent_state)
+
+
+def _settings(teavent_id: str) -> Text:
+    return Text("⚙️", f"/settings_{teavent_id}")
 
 
 @define
@@ -83,13 +91,15 @@ class RegPollView(TeaventView):
             ),
             "\n",
             as_list(
-                format_location(t.location),
-                format_start(t.start),
-                format_duration(t.duration),
+                _location(t.location),
+                _when(t.start),
+                _duration(t.duration),
                 "\n",
-                format_participants(t),
-                format_reserve(t),
+                _participants(t),
+                _reserve(t),
             ),
+            "\n\n",
+            _settings(t.id),
         )
 
     def keyboard(self, t: Teavent):
@@ -108,15 +118,17 @@ class PlannedView(TeaventView):
             ),
             "\n",
             as_list(
-                format_location(t.location),
-                format_start(t.start),
-                format_duration(t.duration),
+                _location(t.location),
+                _when(t.start),
+                _duration(t.duration),
                 "\n",
-                format_participants(t),
-                format_reserve(t),
+                _participants(t),
+                _reserve(t),
             ),
             "\n\n",
             Italic("Отказаться от участия можно только при наличии резерва"),
+            "\n",
+            _settings(t.id),
         )
 
     def keyboard(self, t: Teavent):
@@ -125,10 +137,16 @@ class PlannedView(TeaventView):
 
 class StartedView(TeaventView):
     def text(self, t: Teavent) -> Text:
-        text = Text("Событие ", TextLink(t.summary, url=t.link), " началось")
+        text = Text("🏃 СОБЫТИЕ ", TextLink(t.summary.upper(), url=t.link), " НАЧАЛОСЬ")
         if t.latees:
             text = as_section(
-                text, "\n", as_marked_section("Опаздывают:", *t.latees, marker="  ")
+                text,
+                "\n",
+                as_marked_section(
+                    "Опаздывают:",
+                    *t.latees,
+                    marker="  ",
+                ),
             )
         return text
 
@@ -138,7 +156,9 @@ class StartedView(TeaventView):
 
 class CancelledView(TeaventView):
     def text(self, t: Teavent) -> Text:
-        return Text("Событие ", TextLink(t.summary, url=t.link), Bold(" ОТМЕНЕНО"))
+        return Text(
+            "🚫 СОБЫТИЕ ", TextLink(t.summary.upper(), url=t.link), Bold(" ОТМЕНЕНО")
+        )
 
     def keyboard(self, t: Teavent):
         return None
@@ -250,20 +270,14 @@ class TeaventPresenter:
 
 
 def _render_teavent(t: Teavent) -> Text:
-    participants = t.effective_participant_ids or ["~"]
-
     return as_section(
         TextLink(t.summary, url=t.link),
         as_list(
-            Text(f"/settings_{t.id}"),
-            as_key_value("Статус", t.state),
-            as_key_value("Начало", t.start),
-            as_key_value("Продолжительность", t.duration),
-            as_marked_section(
-                f"Участники ({t.num_participants}/{t.config.max}):",
-                *participants,
-                marker="  ",
-            ),
+            _status(t.state),
+            _when(t.start),
+            _duration(t.duration),
+            _participants(t),
+            _settings(t.id),
         ),
     )
 
