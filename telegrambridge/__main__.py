@@ -3,6 +3,7 @@ import logging
 import os
 
 import aiogram
+from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.base import DefaultKeyBuilder
 from aiogram.fsm.storage.mongo import MongoStorage
 import aiogram_dialog
@@ -33,7 +34,9 @@ async def main():
         )
 
         # TODO: use pydantic_settings to configure
-        bot = aiogram.Bot(token=os.getenv("TOKEN"))
+        bot = aiogram.Bot(
+            token=os.getenv("TOKEN"), default=DefaultBotProperties(parse_mode="HTML")
+        )
 
         logging.info("Set commands menu")
         await set_default_commands(bot)

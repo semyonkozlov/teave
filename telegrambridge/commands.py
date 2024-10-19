@@ -2,9 +2,8 @@ from aiogram import Bot
 from aiogram.types import BotCommand, BotCommandScopeDefault
 
 user_commands = {
-    "settings": "Show teavents settings",
-    "teavents": "List upcoming teavents",
-    "new": "Add new schedule",
+    "settings": "show teavents settings",
+    "new": "add new schedule",
 }
 
 

@@ -56,7 +56,9 @@ def _participants(t: Teavent) -> Text:
 
 
 def _reserve(t: Teavent) -> Text:
-    reserve = t.reserve_participant_ids or ["~"]
+    reserve = t.reserve_participant_ids
+    if not reserve:
+        return Text()
 
     return as_marked_section(
         "Резерв:",
@@ -269,7 +271,7 @@ class TeaventPresenter:
         return self._state_to_view.get(state)
 
 
-def _render_teavent(t: Teavent) -> Text:
+def render_teavent(t: Teavent, with_settings: bool = True) -> Text:
     return as_section(
         TextLink(t.summary, url=t.link),
         as_list(
@@ -277,13 +279,14 @@ def _render_teavent(t: Teavent) -> Text:
             _when(t.start),
             _duration(t.duration),
             _participants(t),
-            _settings(t.id),
+            _reserve(t),
+            _settings(t.id) if with_settings else Text(),
         ),
     )
 
 
 def render_teavents(teavents: list[Teavent]) -> Text:
-    teavents_list = [_render_teavent(t) for t in teavents] or ["~"]
+    teavents_list = [render_teavent(t) for t in teavents] or ["~"]
 
     return as_section(
         Bold(Underline("БЛИЖАЙШИЕ СОБЫТИЯ")),

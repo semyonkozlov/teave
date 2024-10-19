@@ -5,6 +5,7 @@ import re
 
 from decorator import decorator
 from aiogram.filters.state import StatesGroup, State
+from aiogram.utils.formatting import Text, Bold, Underline, Italic
 from aiogram.types import CallbackQuery, Message
 from aiogram_dialog import Dialog, DialogManager, Window
 from aiogram_dialog.widgets.text import Const, Format
@@ -17,11 +18,14 @@ from aiogram_dialog.widgets.kbd import (
     SwitchTo,
     Cancel,
     Multiselect,
+    Row,
+    Start,
 )
 from aiogram_dialog.widgets.input import TextInput
 
 from common.errors import EventDescriptionParsingError
 from common.models import Teavent
+from telegrambridge.views import render_teavent
 
 log = logging.getLogger(__name__)
 
@@ -37,6 +41,10 @@ async def finish_dialog(func, *args, **kwargs):
         await manager.done(e)
 
 
+def _settings_header() -> str:
+    return Underline(Bold("⚙️ НАСТРОЙКИ")).as_html()
+
+
 class TeaventAdmin(StatesGroup):
     select_teavent = State()
     teavent_settings = State()
@@ -45,11 +53,20 @@ class TeaventAdmin(StatesGroup):
     kick_participants = State()
 
 
-async def get_teavents(**kwargs) -> dict:
+async def get_teavents_list(**kwargs) -> dict:
     teavents = await kwargs["list_teavents"]()
     return {
         "teavents": teavents,
         "count": len(teavents),
+    }
+
+
+async def get_teavent_html(**kwargs) -> dict:
+    teavent_id = kwargs["dialog_manager"].dialog_data["selected_teavent_id"]
+    teavent: Teavent = await kwargs["get_teavent"](id=teavent_id)
+
+    return {
+        "teavent_html": render_teavent(teavent, with_settings=False).as_html(),
     }
 
 
@@ -65,23 +82,27 @@ async def on_teavent_selected(
 
 def select_teavent() -> Window:
     return Window(
-        Const("Выберите событие"),
+        _settings_header(),
+        " ",
+        Italic("Выберите событие").as_html(),
         Select(
-            Format("{item.summary} в {item.start}"),
+            Format("{item.summary}"),
             id="select_teavents",
             item_id_getter=lambda t: t.id,
             items="teavents",
             on_click=on_teavent_selected,
         ),
-        Cancel(Const("Закрыть")),  # TODO check show mode
-        getter=get_teavents,
+        Cancel(Const("❌ Закрыть")),  # TODO check show mode
+        getter=get_teavents_list,
         state=TeaventAdmin.select_teavent,
     )
 
 
 def teavent_settings() -> Window:
     return Window(
-        Format("Настройки события {dialog_data[selected_teavent_id]}"),
+        _settings_header(),
+        " ",
+        Format("{teavent_html}"),
         Group(
             SwitchTo(
                 Const("Добавить участников"),
@@ -101,6 +122,8 @@ def teavent_settings() -> Window:
             Back(Const("<<")),
             width=2,
         ),
+        disable_web_page_preview=True,
+        getter=get_teavent_html,
         state=TeaventAdmin.teavent_settings,
     )
 
@@ -122,7 +145,11 @@ async def do_cancel(
 
 def confirm_cancel() -> Window:
     return Window(
-        Format("Отменить {dialog_data[selected_teavent_id]}?"),
+        _settings_header(),
+        " ",
+        Format("{teavent_html}"),
+        " ",
+        Format(Italic("Отменить событие?").as_html()),
         Button(
             Const("Да"),
             id="cancel.yes",
@@ -133,6 +160,8 @@ def confirm_cancel() -> Window:
             id="cancel.no",
             state=TeaventAdmin.teavent_settings,
         ),
+        disable_web_page_preview=True,
+        getter=get_teavent_html,
         state=TeaventAdmin.confirm_cancel,
     )
 
@@ -160,7 +189,11 @@ async def do_add(
 
 def add_participants() -> Window:
     return Window(
-        Const("Введите имена участников через ,"),
+        _settings_header(),
+        " ",
+        Format("{teavent_html}"),
+        " ",
+        Format(Italic("Введите имена участников через ,").as_html()),
         SwitchTo(
             Const("Отмена"),
             id="add_participants.cancel",
@@ -170,6 +203,8 @@ def add_participants() -> Window:
             id="add_participants.input",
             on_success=do_add,
         ),
+        disable_web_page_preview=True,
+        getter=get_teavent_html,
         state=TeaventAdmin.add_participants,
         # markup_factory=ReplyKeyboardFactory(
         #     input_field_placeholder=Const("@username, ...")
@@ -228,7 +263,13 @@ async def do_kick_input(
 
 def kick_participants() -> Window:
     return Window(
-        Const("Введите имя участников через , или выберите из списка"),
+        _settings_header(),
+        " ",
+        Format("{teavent_html}"),
+        " ",
+        Format(
+            Italic("Введите имя участников через , или выберите из списка").as_html()
+        ),
         Multiselect(
             Format("✓ {item}"),
             Format("{item}"),
@@ -250,7 +291,8 @@ def kick_participants() -> Window:
             id="kick_participants.input",
             on_success=do_kick_input,
         ),
-        getter=get_partcipants,
+        disable_web_page_preview=True,
+        getter=[get_partcipants, get_teavent_html],
         state=TeaventAdmin.kick_participants,
     )
 
