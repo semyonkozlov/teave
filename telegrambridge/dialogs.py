@@ -5,7 +5,7 @@ import re
 
 from decorator import decorator
 from aiogram.filters.state import StatesGroup, State
-from aiogram.utils.formatting import Text, Bold, Underline, Italic
+from aiogram.utils.formatting import Code, Bold, Underline, Italic
 from aiogram.types import CallbackQuery, Message
 from aiogram_dialog import Dialog, DialogManager, Window
 from aiogram_dialog.widgets.text import Const, Format
@@ -19,7 +19,7 @@ from aiogram_dialog.widgets.kbd import (
     Cancel,
     Multiselect,
     Row,
-    Start,
+    ScrollingGroup,
 )
 from aiogram_dialog.widgets.input import TextInput
 
@@ -104,21 +104,21 @@ def teavent_settings() -> Window:
         Format("{teavent_html}"),
         Group(
             SwitchTo(
-                Const("Добавить участников"),
+                Const("➕ Добавить участников"),
                 id="settings.add_participants",
                 state=TeaventAdmin.add_participants,
             ),
             SwitchTo(
-                Const("Кикнуть участников"),
+                Const("🚮 Кикнуть участников"),
                 id="settings.kick_participants",
                 state=TeaventAdmin.kick_participants,
             ),
             SwitchTo(
-                Const("Отменить событие"),
+                Const("🚫 Отменить событие"),
                 id="settings.cancel",
                 state=TeaventAdmin.confirm_cancel,
             ),
-            Back(Const("<<")),
+            Back(Const("🔙 Назад")),
             width=2,
         ),
         disable_web_page_preview=True,
@@ -149,15 +149,17 @@ def confirm_cancel() -> Window:
         Format("{teavent_html}"),
         " ",
         Format(Italic("Отменить событие?").as_html()),
-        Button(
-            Const("Да"),
-            id="cancel.yes",
-            on_click=do_cancel,
-        ),
-        SwitchTo(
-            Const("Нет"),
-            id="cancel.no",
-            state=TeaventAdmin.teavent_settings,
+        Row(
+            Button(
+                Const("⚠️ Да"),
+                id="cancel.yes",
+                on_click=do_cancel,
+            ),
+            SwitchTo(
+                Const("🔙 Нет"),
+                id="cancel.no",
+                state=TeaventAdmin.teavent_settings,
+            ),
         ),
         disable_web_page_preview=True,
         getter=get_teavent_html,
@@ -175,7 +177,6 @@ async def do_add(
     user_action = manager.middleware_data["user_action"]
     teavent_id = manager.dialog_data["selected_teavent_id"]
 
-    # TODO handle errors
     for user_id in data.split(","):
         await user_action(
             type="confirm",
@@ -193,9 +194,14 @@ def add_participants() -> Window:
         " ",
         Format("{teavent_html}"),
         " ",
-        Format(Italic("Введите имена участников через ,").as_html()),
+        Format(
+            Italic(
+                "Введите имена участников через запятую, например: ",
+                Code("Alice,@username1,Bob"),
+            ).as_html()
+        ),
         SwitchTo(
-            Const("Отмена"),
+            Const("🔙 Отмена"),
             id="add_participants.cancel",
             state=TeaventAdmin.teavent_settings,
         ),
@@ -270,24 +276,36 @@ def kick_participants() -> Window:
         Format("{teavent_html}"),
         " ",
         Format(
-            Italic("Введите имя участников через , или выберите из списка").as_html()
+            Italic(
+                "Введите имена участников через запятую, например: ",
+                Code("Alice,@username1,Bob"),
+                "\n",
+                "Или выберите из списка",
+            ).as_html()
         ),
-        Multiselect(
-            Format("✓ {item}"),
-            Format("{item}"),
-            id="kick_participants.mselect",
-            item_id_getter=lambda x: x,
-            items="participants",
+        ScrollingGroup(
+            Multiselect(
+                Format("✓ {item}"),
+                Format("{item}"),
+                id="kick_participants.mselect",
+                item_id_getter=lambda x: x,
+                items="participants",
+            ),
+            id="kick_participants.mselect_scroll",
+            width=2,
+            height=4,
         ),
-        Button(
-            Const("Kick"),
-            id="kick_participants.confirm",
-            on_click=do_kick_checked,
-        ),
-        SwitchTo(
-            Const("Отмена"),
-            id="kick_participants.cancel",
-            state=TeaventAdmin.teavent_settings,
+        Row(
+            Button(
+                Const("🚮 Kick"),
+                id="kick_participants.confirm",
+                on_click=do_kick_checked,
+            ),
+            SwitchTo(
+                Const("🔙 Отмена"),
+                id="kick_participants.cancel",
+                state=TeaventAdmin.teavent_settings,
+            ),
         ),
         TextInput(
             id="kick_participants.input",
@@ -388,7 +406,7 @@ def ask_for_schedule() -> Window:
             on_error=show_error,
         ),
         Cancel(
-            Const("Отмена"),
+            Const("🔙 Отмена"),
         ),
         state=ManageNewTeavents.ask_for_schedule,
     )
@@ -420,7 +438,7 @@ def confirm_fetched_teavents() -> Window:
             on_click=parse_teavents,
         ),
         Cancel(
-            Const("Отмена"),
+            Const("🔙 Отмена"),
         ),
         state=ManageNewTeavents.confirm_fetched_teavents,
     )
@@ -473,7 +491,7 @@ def ask_for_chats() -> Window:
             on_click=start_managing_teavents,
         ),
         Cancel(
-            Const("Отмена"),
+            Const("🔙 Отмена"),
         ),
         getter=get_bot_chats,
         state=ManageNewTeavents.ask_for_chats,
