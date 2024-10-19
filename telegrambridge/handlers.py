@@ -86,12 +86,17 @@ async def handle_view(
     await presenter._show(await get_teavent(id=command.args))
 
 
-# @router.message(Command("teavents"))
-# async def handle_command_teavents(
-#     message: aiogram.types.Message, list_teavents: Coroutine
-# ):
-#     content = render_teavents(await list_teavents())
-#     await message.reply(**content.as_kwargs(), disable_web_page_preview=True)
+@router.message(Command("tasks"), IsAdmin())
+async def handle_tasks(message: aiogram.types.Message, tasks: Coroutine):
+    await message.reply(str(await tasks()))
+
+
+@router.message(Command("teavents"), IsAdmin())
+async def handle_command_teavents(
+    message: aiogram.types.Message, list_teavents: Coroutine
+):
+    content = render_teavents(await list_teavents())
+    await message.reply(**content.as_kwargs(), disable_web_page_preview=True)
 
 
 @router.message(Command("new"), IsAdmin())
@@ -165,8 +170,3 @@ async def handle_button_click(
         return await callback.answer(str(e), show_alert=True)
 
     return await callback.answer()
-
-
-@router.message(Command("tasks"), IsAdmin())
-async def handle_tasks(message: aiogram.types.Message, tasks: Coroutine):
-    await message.reply(str(await tasks()))
