@@ -31,12 +31,11 @@ log = logging.getLogger(__name__)
 
 
 @decorator
-async def finish_dialog(func, *args, **kwargs):
+async def close_on_error(func, *args, **kwargs):
     manager: DialogManager = args[2]
 
     try:
         await func(*args, **kwargs)
-        await manager.done()
     except Exception as e:
         await manager.done(e)
 
@@ -128,7 +127,7 @@ def teavent_settings() -> Window:
     )
 
 
-@finish_dialog
+@close_on_error
 async def do_cancel(
     callback: CallbackQuery,
     button: Button,
@@ -166,6 +165,7 @@ def confirm_cancel() -> Window:
     )
 
 
+@close_on_error
 async def do_add(
     message: Message,
     widget: TextInput,
@@ -236,6 +236,7 @@ async def _do_kick(manager: DialogManager, participant_ids: list[str]):
         )
 
 
+@close_on_error
 async def do_kick_checked(
     callback: CallbackQuery,
     button: Button,
@@ -249,6 +250,7 @@ async def do_kick_checked(
     await manager.switch_to(TeaventAdmin.teavent_settings)
 
 
+@close_on_error
 async def do_kick_input(
     message: Message,
     widget: TextInput,
