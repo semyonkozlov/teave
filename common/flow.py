@@ -20,8 +20,8 @@ class TeaventFlow(StateMachine):
     # transitions
     # fmt: off
     start_poll = created.to(poll_open)
-    confirm = created.to.itself(internal=True) | poll_open.to.itself(internal=True) | planned.to.itself(internal=True)
-    reject = created.to.itself(internal=True) | planned.to.itself(internal=True, validators="has_reserve") | poll_open.to.itself(internal=True)
+    confirm = created.to.itself(internal=True, cond="forced") | poll_open.to.itself(internal=True) | planned.to.itself(internal=True)
+    reject = created.to.itself(internal=True) | poll_open.to.itself(internal=True) | planned.to.itself(internal=True, validators="has_reserve") 
     stop_poll = poll_open.to(planned, cond="ready") | poll_open.to(cancelled, unless="ready")
     cancel = cancelled.from_(created, poll_open, planned)
     start_ = planned.to(started)
@@ -37,7 +37,13 @@ class TeaventFlow(StateMachine):
     def teavent(self) -> Teavent:
         return self.model
 
-    def has_reserve(self, model: Teavent):
+    def forced(self, force: bool) -> bool:
+        return force
+
+    def has_reserve(self, model: Teavent, force: bool):
+        if force:
+            return
+
         if not model.has_reserve():
             raise RuntimeError("No reserve")
 
@@ -63,13 +69,13 @@ class TeaventFlow(StateMachine):
     @confirm.validators
     def not_confirmed_before(self, user_id: str, model: Teavent):
         if model.confirmed_by(user_id):
-            raise RuntimeError("Already confirmed")
+            raise RuntimeError(f"'{user_id}' has already confirmed")
 
     @i_am_late.validators
     @reject.validators
     def confirmed_before(self, user_id: str, model: Teavent):
         if not model.confirmed_by(user_id):
-            raise RuntimeError("Not confirmed")
+            raise RuntimeError(f"it is not confirmed by '{user_id}'")
 
     @reject.on
     def remove_participant(self, user_id: str, model: Teavent):

@@ -62,9 +62,12 @@ async def main():
             return manager.handle_teavent(teavent, initial_adjust=True)
 
         @rethrow_exceptions_as(cls=RuntimeError)
-        def user_action(type: str, user_id: str, teavent_id: str):
+        def user_action(type: str, user_id: str, teavent_id: str, force: bool):
             return manager.handle_user_action(
-                type=type, user_id=user_id, teavent_id=teavent_id
+                type=type,
+                user_id=user_id,
+                teavent_id=teavent_id,
+                force=force,
             )
 
         def tasks():

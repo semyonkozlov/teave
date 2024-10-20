@@ -139,6 +139,7 @@ async def do_cancel(
         type="cancel",
         user_id=f"@{callback.from_user.username}",
         teavent_id=manager.dialog_data["selected_teavent_id"],
+        force=True,
     )
 
 
@@ -182,6 +183,7 @@ async def do_add(
             type="confirm",
             user_id=user_id,
             teavent_id=teavent_id,
+            force=True,
         )
 
     await message.delete()
@@ -239,6 +241,7 @@ async def _do_kick(manager: DialogManager, participant_ids: list[str]):
             type="reject",
             user_id=participant_id,
             teavent_id=teavent_id,
+            force=True,
         )
 
 

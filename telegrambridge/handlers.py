@@ -37,6 +37,7 @@ async def handle_deeplink(
             type=action_type,
             user_id=str(message.from_user.id),
             teavent_id=teavent_id,
+            force=False,
         )
         await message.react([ReactionTypeEmoji(emoji="👍")])
     except Exception as e:
@@ -69,6 +70,7 @@ async def handle_admin_actions(
             type=command.command,
             user_id=str(message.from_user.id),
             teavent_id=command.args,
+            force=True,
         )
         await message.react([ReactionTypeEmoji(emoji="👍")])
     except Exception as e:
@@ -165,6 +167,7 @@ async def handle_button_click(
             type=callback_data.action,
             user_id=f"@{callback.from_user.username}",
             teavent_id=callback_data.teavent_id,
+            force=False,
         )
     except Exception as e:
         return await callback.answer(str(e), show_alert=True)

@@ -18,6 +18,8 @@ class RmqProtocol:
 
     _executor: Executor
 
+    _pub_id: int = 0  # TODO: mb better way?
+
     async def _publish_update(self, teavent: Teavent):
         await self._channel.default_exchange.publish(
             ModelMessage(teavent),
@@ -27,8 +29,10 @@ class RmqProtocol:
     # SM actions
 
     def after_transition(self, state: State, model: Teavent):
+        self._pub_id += 1
+
         self._executor.schedule(
             self._publish_update(model.model_copy()),
             group_id=f"{model.id}_pub",
-            name=state.value,
+            name=f"{state.value}_{self._pub_id}",
         )

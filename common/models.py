@@ -1,7 +1,6 @@
 from base64 import b64encode
 from datetime import time, datetime, timedelta, date, timezone
 import logging
-import warnings
 
 from dateutil.rrule import rruleset, rrulestr
 import yaml

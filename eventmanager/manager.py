@@ -44,11 +44,12 @@ class TeaventManager:
         else:
             raise TeaventIsManaged(teavent)
 
-    def handle_user_action(self, type: str, user_id: str, teavent_id: str):
+    def handle_user_action(self, type: str, user_id: str, teavent_id: str, force: bool):
         sm = self._teavent_sm(teavent_id)
         sm.send(
             type,
             user_id=user_id,
+            force=force,
             now=self._executor.now(sm.teavent.tz),
             recurring_exceptions=self._get_recurring_exceptions(sm.teavent.id),
         )
