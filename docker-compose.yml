@@ -8,6 +8,10 @@ services:
     depends_on:
       rabbitmq:
         condition: service_healthy
+    logging:
+      driver: journald
+      options:
+        tag: telegrambridge
 
   eventmanager:
     build:
@@ -16,6 +20,10 @@ services:
     depends_on:
       rabbitmq:
         condition: service_healthy 
+    logging:
+      driver: journald
+      options:
+        tag: eventmanager
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
@@ -30,19 +38,26 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
+    logging:
+      driver: journald
+      options:
+        tag: rabbitmq
       
   mongodb:
-      image: mongo:latest
-      container_name: mongodb
-      ports:
-        - 27017:27017
-      volumes:
-        - mongodb_data:/data/db
-      environment:
-        MONGO_INITDB_ROOT_USERNAME: admin
-        MONGO_INITDB_ROOT_PASSWORD: pass       
-
-
+    image: mongo:latest
+    container_name: mongodb
+    ports:
+      - 27017:27017
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: pass    
+    logging:
+      driver: journald
+      options:
+        tag: mongodb
+         
 volumes:
   rabbitmq_data:
   mongodb_data:
