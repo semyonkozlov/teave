@@ -119,6 +119,7 @@ def teavent_settings() -> Window:
                 state=TeaventAdmin.confirm_cancel,
             ),
             Back(Const("🔙 Назад")),
+            Cancel(Const("❌ Закрыть")),
             width=2,
         ),
         disable_web_page_preview=True,
