@@ -109,7 +109,7 @@ async def handle_command_new(
     await dialog_manager.start(
         ManageNewTeavents.ask_for_schedule,
         mode=StartMode.RESET_STACK,
-        show_mode=ShowMode.EDIT,
+        show_mode=ShowMode.DELETE_AND_SEND,
     )
 
     try:
@@ -129,7 +129,7 @@ async def handle_command_settings_with_teavent_id(
     await dialog_manager.start(
         TeaventAdmin.teavent_settings,
         mode=StartMode.RESET_STACK,
-        show_mode=ShowMode.EDIT,
+        show_mode=ShowMode.DELETE_AND_SEND,
         data={"selected_teavent_id": teavent_id},
     )
     try:
@@ -146,7 +146,7 @@ async def handle_command_settings(
     await dialog_manager.start(
         TeaventAdmin.select_teavent,
         mode=StartMode.RESET_STACK,
-        show_mode=ShowMode.EDIT,
+        show_mode=ShowMode.DELETE_AND_SEND,
     )
     try:
         await message.delete()

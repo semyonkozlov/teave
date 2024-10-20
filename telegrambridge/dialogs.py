@@ -142,6 +142,8 @@ async def do_cancel(
         force=True,
     )
 
+    await manager.done()
+
 
 def confirm_cancel() -> Window:
     return Window(
@@ -438,7 +440,7 @@ def confirm_fetched_teavents() -> Window:
     return Window(
         Format("Вижу {dialog_data[gcal_events_count]} событий. Добавить их в бота?"),
         Next(
-            Const("Добавить"),
+            Const("✅ Добавить"),
             on_click=parse_teavents,
         ),
         Cancel(

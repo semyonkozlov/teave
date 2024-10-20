@@ -36,6 +36,10 @@ def _location(location: str) -> Text:
     return as_key_value("Место", location)
 
 
+def _when_inline(dt: datetime) -> str:
+    return format_datetime(dt, "d MMMM, в HH:mm", locale="ru_RU")
+
+
 def _when(dt: datetime) -> Text:
     return as_key_value(
         "Начало", format_datetime(dt, "EEEE, d MMMM, HH:mm", locale="ru_RU")
@@ -112,13 +116,12 @@ class RegPollView(TeaventView):
 
 class PlannedView(TeaventView):
     def text(self, t: Teavent) -> Text:
-        when = format_datetime(t.start, "d MMMM, в HH:mm", locale="ru_RU")
         return as_section(
             Bold(
                 "✅ ",
                 TextLink(t.summary.upper(), url=t.link),
                 " СОСТОИТСЯ ",
-                when.upper(),
+                _when_inline(t.start).upper(),
             ),
             "\n",
             as_list(
@@ -141,7 +144,7 @@ class PlannedView(TeaventView):
 
 class StartedView(TeaventView):
     def text(self, t: Teavent) -> Text:
-        text = Text("🏃 СОБЫТИЕ ", TextLink(t.summary.upper(), url=t.link), " НАЧАЛОСЬ")
+        text = Bold("🏃 СОБЫТИЕ ", TextLink(t.summary.upper(), url=t.link), " НАЧАЛОСЬ")
         if t.latees:
             text = as_section(
                 text,
@@ -160,9 +163,23 @@ class StartedView(TeaventView):
 
 class CancelledView(TeaventView):
     def text(self, t: Teavent) -> Text:
-        return Text(
-            "🚫 СОБЫТИЕ ", TextLink(t.summary.upper(), url=t.link), Bold(" ОТМЕНЕНО")
+        text = Bold(
+            "🚫 СОБЫТИЕ ",
+            TextLink(t.summary.upper(), url=t.link),
+            f" ({_when_inline(t.start).upper()}) ",
+            Underline(" ОТМЕНЕНО"),
         )
+
+        if t.participant_ids:
+            text = as_section(
+                text,
+                "\n",
+                as_list(
+                    *t.participant_ids,
+                ),
+            )
+
+        return text
 
     def keyboard(self, t: Teavent):
         return None
@@ -242,18 +259,16 @@ class TeaventPresenter:
         return chat_message_ids
 
     async def _update(self, chat_message_ids: list, teavent: Teavent):
-        view = self._get_view(teavent.state)
-        assert view, "we should have view if we are trying to update something"
-
-        for chat_id, message_id in chat_message_ids:
-            with suppress(TelegramBadRequest):
-                await self._bot.edit_message_text(
-                    chat_id=chat_id,
-                    message_id=message_id,
-                    disable_web_page_preview=True,
-                    reply_markup=view.keyboard(teavent),
-                    **view.text(teavent).as_kwargs(),
-                )
+        if view := self._get_view(teavent.state):
+            for chat_id, message_id in chat_message_ids:
+                with suppress(TelegramBadRequest):
+                    await self._bot.edit_message_text(
+                        chat_id=chat_id,
+                        message_id=message_id,
+                        disable_web_page_preview=True,
+                        reply_markup=view.keyboard(teavent),
+                        **view.text(teavent).as_kwargs(),
+                    )
 
     async def _pin(self, chat_message_ids: list):
         for chat_id, message_id in chat_message_ids:
