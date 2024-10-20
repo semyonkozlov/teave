@@ -24,7 +24,9 @@ class TeaventsDB:
 
         self._executor.schedule(
             self._storage.replace_one(
-                {}, model.model_dump(mode="json", by_alias=True), upsert=True
+                filter={"_id": model.id},
+                replacement=model.model_dump(mode="json", by_alias=True),
+                upsert=True,
             ),
             group_id=f"{model.id}_db",
             name=f"update_{self._update_id}",

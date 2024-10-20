@@ -20,6 +20,7 @@ from aiogram_dialog.widgets.kbd import (
     Multiselect,
     Row,
     ScrollingGroup,
+    Column,
 )
 from aiogram_dialog.widgets.input import TextInput
 
@@ -84,12 +85,14 @@ def select_teavent() -> Window:
         _settings_header(),
         " ",
         Italic("Выберите событие").as_html(),
-        Select(
-            Format("{item.summary}"),
-            id="select_teavents",
-            item_id_getter=lambda t: t.id,
-            items="teavents",
-            on_click=on_teavent_selected,
+        Column(
+            Select(
+                Format("{item.summary}"),
+                id="select_teavents",
+                item_id_getter=lambda t: t.id,
+                items="teavents",
+                on_click=on_teavent_selected,
+            ),
         ),
         Cancel(Const("❌ Закрыть")),  # TODO check show mode
         getter=get_teavents_list,
