@@ -177,10 +177,10 @@ async def do_add(
     user_action = manager.middleware_data["user_action"]
     teavent_id = manager.dialog_data["selected_teavent_id"]
 
-    for user_id in data.split(","):
+    for user_id in (s for s in map(str.strip, data.split(",")) if s):
         await user_action(
             type="confirm",
-            user_id=user_id.strip(),
+            user_id=user_id,
             teavent_id=teavent_id,
         )
 
@@ -263,7 +263,8 @@ async def do_kick_input(
     manager: DialogManager,
     data: str,
 ):
-    await _do_kick(manager, participant_ids=[s.strip() for s in data.split(",")])
+    stripped = [s for s in map(str.strip, data.split(",")) if s]
+    await _do_kick(manager, participant_ids=stripped)
 
     await message.delete()
     await manager.switch_to(TeaventAdmin.teavent_settings)

@@ -49,7 +49,9 @@ def _duration(td: timedelta) -> Text:
 def _participants(t: Teavent) -> Text:
     participants = t.effective_participant_ids or ["~"]
     return as_marked_section(
-        f"Участники ({t.num_participants}/{t.config.max}, минимум {t.config.min}):",
+        Bold(
+            f"Участники ({t.num_participants}/{t.config.max}, минимум {t.config.min}):"
+        ),
         *participants,
         marker="  ",
     )
@@ -61,7 +63,7 @@ def _reserve(t: Teavent) -> Text:
         return Text()
 
     return as_marked_section(
-        "Резерв:",
+        Bold("Резерв:"),
         *reserve,
         marker="  ",
     )
