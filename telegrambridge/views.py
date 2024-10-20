@@ -167,7 +167,7 @@ class CancelledView(TeaventView):
             "🚫 СОБЫТИЕ ",
             TextLink(t.summary.upper(), url=t.link),
             f" ({_when_inline(t.start).upper()}) ",
-            Underline(" ОТМЕНЕНО"),
+            Underline("ОТМЕНЕНО"),
         )
 
         if t.participant_ids:
