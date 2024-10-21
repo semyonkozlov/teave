@@ -1,5 +1,6 @@
 import motor.motor_asyncio as aio_mongo
 from attr import define
+from statemachine import State
 
 from common.executors import Executor
 from common.models import Teavent
@@ -19,7 +20,10 @@ class TeaventsDB:
 
     # SM actions
 
-    def after_transition(self, model: Teavent):
+    def after_transition(self, state: State, model: Teavent):
+        if state.final:
+            return
+
         self._update_id += 1
 
         self._executor.schedule(
