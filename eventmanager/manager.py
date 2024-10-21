@@ -137,10 +137,16 @@ class TeaventManager:
     def _recreate_or_finalize(self, model: Teavent):
         sm = self._teavent_sm(model.id)
         if model.is_reccurring:
-            sm.recreate(
-                now=model.end,  # allows correctly get next recurring instance
+            if model.is_last_recurrence(
+                now=model.end,
                 recurring_exceptions=self._get_recurring_exceptions(model.id),
-            )
+            ):
+                sm.finalize()
+            else:
+                sm.recreate(
+                    now=model.end,  # allows correctly get next recurring instance
+                    recurring_exceptions=self._get_recurring_exceptions(model.id),
+                )
         else:
             sm.finalize()
 

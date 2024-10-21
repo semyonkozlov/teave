@@ -166,9 +166,21 @@ class Teavent(TeaveModel):
             rr.rrule(rrulestr(r, dtstart=self.original_start_time))
         return rr
 
+    def is_last_recurrence(
+        self, now: datetime, recurring_exceptions: list["Teavent"]
+    ) -> bool:
+        assert self.is_reccurring
+
+        return self._next_recurrence(now, recurring_exceptions) is None
+
     def adjust(self, now: datetime, recurring_exceptions: list["Teavent"]):
         assert self.is_reccurring
 
+        self.shift_to(self._next_recurrence(now, recurring_exceptions).date())
+
+    def _next_recurrence(
+        self, now: datetime, recurring_exceptions: list["Teavent"]
+    ) -> datetime | None:
         rr = self._rruleset()
         for t in recurring_exceptions:
             assert t.rrule is None
@@ -177,8 +189,7 @@ class Teavent(TeaveModel):
             exdate = datetime.combine(t.start.date(), self.start.time(), tzinfo=self.tz)
             rr.exdate(exdate)
 
-        next_dt: datetime = rr.after(now)
-        self.shift_to(next_dt.date())
+        return rr.after(now)
 
     def shift_to(self, new_date: date):
         duration = self.duration

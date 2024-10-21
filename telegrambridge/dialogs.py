@@ -39,6 +39,7 @@ async def close_on_error(func, *args, **kwargs):
     try:
         await func(*args, **kwargs)
     except Exception as e:
+        log.exception(e)
         await manager.done(e)
 
 
