@@ -55,7 +55,9 @@ class TeaventAdmin(StatesGroup):
 
 
 async def get_teavents_list(
-    list_teavents: Coroutine, dialog_manager: DialogManager, **_
+    list_teavents: Coroutine,
+    dialog_manager: DialogManager,
+    **_,
 ) -> dict:
     teavents = await list_teavents()
     dialog_manager.dialog_data["id_map"] = [t.id for t in teavents]
@@ -65,9 +67,13 @@ async def get_teavents_list(
     }
 
 
-async def get_teavent_html(**kwargs) -> dict:
-    teavent_id = kwargs["dialog_manager"].dialog_data["selected_teavent_id"]
-    teavent: Teavent = await kwargs["get_teavent"](id=teavent_id)
+async def get_teavent_html(
+    get_teavent: Coroutine,
+    dialog_manager: DialogManager,
+    **_,
+) -> dict:
+    teavent_id = dialog_manager.dialog_data["selected_teavent_id"]
+    teavent: Teavent = await get_teavent(id=teavent_id)
 
     return {
         "teavent_html": render_teavent(teavent, with_settings=False).as_html(),
@@ -232,9 +238,13 @@ def add_participants() -> Window:
     )
 
 
-async def get_partcipants(**kwargs):
-    teavent_id = kwargs["dialog_manager"].dialog_data["selected_teavent_id"]
-    teavent: Teavent = await kwargs["get_teavent"](id=teavent_id)
+async def get_partcipants(
+    get_teavent: Coroutine,
+    dialog_manager: DialogManager,
+    **_,
+) -> dict:
+    teavent_id = dialog_manager.dialog_data["selected_teavent_id"]
+    teavent: Teavent = await get_teavent(id=teavent_id)
 
     participants = teavent.participant_ids
 
@@ -481,7 +491,7 @@ async def start_managing_teavents(
     await manager.done()
 
 
-async def get_bot_chats(**kwargs):
+async def get_bot_chats(**_):
     # TODO get chats from db
     bot_chats = []
 
