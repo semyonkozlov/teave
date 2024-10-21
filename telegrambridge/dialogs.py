@@ -1,4 +1,5 @@
 import base64
+from collections.abc import Coroutine
 import logging
 import operator
 import re
@@ -53,10 +54,13 @@ class TeaventAdmin(StatesGroup):
     kick_participants = State()
 
 
-async def get_teavents_list(**kwargs) -> dict:
-    teavents = await kwargs["list_teavents"]()
+async def get_teavents_list(
+    list_teavents: Coroutine, dialog_manager: DialogManager, **_
+) -> dict:
+    teavents = await list_teavents()
+    dialog_manager.dialog_data["id_map"] = [t.id for t in teavents]
     return {
-        "teavents": teavents,
+        "teavents": list(enumerate(teavents)),
         "count": len(teavents),
     }
 
@@ -76,7 +80,9 @@ async def on_teavent_selected(
     manager: DialogManager,
     item_id: str,
 ):
-    manager.dialog_data["selected_teavent_id"] = item_id
+    teavent_id = manager.dialog_data["id_map"][int(item_id)]
+    manager.dialog_data["selected_teavent_id"] = teavent_id
+
     await manager.switch_to(TeaventAdmin.teavent_settings)
 
 
@@ -87,9 +93,9 @@ def select_teavent() -> Window:
         Italic("Выберите событие").as_html(),
         Column(
             Select(
-                Format("{item.summary}"),
+                Format("{item[1].summary}"),
                 id="select_teavents",
-                item_id_getter=lambda t: t.id,
+                item_id_getter=operator.itemgetter(0),
                 items="teavents",
                 on_click=on_teavent_selected,
             ),
