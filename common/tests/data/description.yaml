@@ -4,3 +4,5 @@ config:
   start_poll_at: 11:00
   max: 8
   min: 2
+  start_poll_delta: 23:00
+  stop_poll_delta: 12:00

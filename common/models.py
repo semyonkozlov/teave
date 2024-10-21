@@ -14,6 +14,11 @@ log = logging.getLogger(__name__)
 
 DEFAULT_MAX_PARTICIPANTS = 100
 
+DEFAULT_START_POLL_DELTA = timedelta(hours=5)
+DEFAULT_STOP_POLL_DELTA = timedelta(hours=2)
+
+assert DEFAULT_STOP_POLL_DELTA < DEFAULT_START_POLL_DELTA
+
 
 class TeaventConfig(pydantic.BaseModel):
     max: int = DEFAULT_MAX_PARTICIPANTS
@@ -21,6 +26,9 @@ class TeaventConfig(pydantic.BaseModel):
 
     start_poll_at: datetime | time | None = None
     stop_poll_at: datetime | time | None = None
+
+    start_poll_delta: timedelta = DEFAULT_START_POLL_DELTA
+    stop_poll_delta: timedelta = DEFAULT_STOP_POLL_DELTA
 
     model_config = {"extra": "forbid"}
 
@@ -34,12 +42,6 @@ class TeaventConfig(pydantic.BaseModel):
             raise EventDescriptionParsingError from e
 
         return TeaventConfig()
-
-
-DEFAULT_START_POLL_DELTA = timedelta(hours=5)
-DEFAULT_STOP_POLL_DELTA = timedelta(hours=2)
-
-assert DEFAULT_STOP_POLL_DELTA < DEFAULT_START_POLL_DELTA
 
 
 class Teavent(TeaveModel):
@@ -129,14 +131,14 @@ class Teavent(TeaveModel):
     @property
     def start_poll_at(self) -> datetime:
         if self.config.start_poll_at is None:
-            return self._to_dt(self.start - DEFAULT_START_POLL_DELTA)
+            return self._to_dt(self.start - self.config.start_poll_delta)
 
         return self._to_dt(self.config.start_poll_at)
 
     @property
     def stop_poll_at(self) -> datetime:
         if self.config.stop_poll_at is None:
-            return self._to_dt(self.start - DEFAULT_STOP_POLL_DELTA)
+            return self._to_dt(self.start - self.config.stop_poll_delta)
 
         return self._to_dt(self.config.stop_poll_at)
 
