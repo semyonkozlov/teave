@@ -20,6 +20,13 @@ DEFAULT_STOP_POLL_DELTA = timedelta(hours=2)
 assert DEFAULT_STOP_POLL_DELTA < DEFAULT_START_POLL_DELTA
 
 
+class GcalEventDescription(pydantic.BaseModel):
+    description: str | None = None
+    config: dict | None = None
+
+    model_config = {"extra": "forbid"}
+
+
 class TeaventConfig(pydantic.BaseModel):
     max: int = DEFAULT_MAX_PARTICIPANTS
     min: int = 1
@@ -36,8 +43,10 @@ class TeaventConfig(pydantic.BaseModel):
     def from_description(description: str) -> "TeaventConfig":
         try:
             parsed = yaml.load(description, Loader=yaml.BaseLoader)
-            if isinstance(parsed, dict) and (config := parsed.get("config")):
-                return TeaventConfig(**config)
+            if isinstance(parsed, dict):
+                d = GcalEventDescription.model_validate(parsed)
+                if d.config:
+                    return TeaventConfig(**d.config)
         except (pydantic.ValidationError, yaml.YAMLError) as e:
             raise EventDescriptionParsingError from e
 

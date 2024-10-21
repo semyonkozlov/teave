@@ -3,6 +3,7 @@ from collections.abc import Coroutine
 import logging
 import operator
 import re
+import traceback
 
 from decorator import decorator
 from aiogram.filters.state import StatesGroup, State
@@ -452,8 +453,8 @@ async def parse_teavents(
 
         try:
             teavents.append(Teavent.from_gcal_event(item).model_dump_json())
-        except EventDescriptionParsingError as e:
-            await callback.message.answer(str(e))
+        except EventDescriptionParsingError:
+            await callback.message.answer(Code(traceback.format_exc()).as_html())
             raise
 
 
