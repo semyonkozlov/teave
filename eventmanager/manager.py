@@ -78,14 +78,16 @@ class TeaventManager:
         except KeyError as e:
             raise UnknownTeavent(teavent_id) from e
 
-    def _schedule(self, trigger: Callable, teavent: Teavent, at: datetime):
-        group_id = f"{teavent.id}_sm"
-
+    def _cancel_tasks(self, group_id: str):
         try:
             self._executor.cancel(group_id)
             log.info(f"Task group {group_id} is cancelled")
         except KeyError:
             pass
+
+    def _schedule(self, trigger: Callable, teavent: Teavent, at: datetime):
+        group_id = f"{teavent.id}_sm"
+        self._cancel_tasks(group_id)
 
         delay = (at - self._executor.now(tz=at.tzinfo)).total_seconds()
         self._executor.schedule(
@@ -152,4 +154,5 @@ class TeaventManager:
 
     @TeaventFlow.finalized.enter
     def _drop(self, model: Teavent):
+        self._cancel_tasks(f"{model.id}_sm")
         self._statemachines.pop(model.id)
