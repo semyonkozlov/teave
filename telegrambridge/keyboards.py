@@ -31,7 +31,7 @@ class PlannedPollAction(CallbackData, prefix="planned_poll"):
 def make_plannedpoll_keyboard(teavent_id: str):
     builder = InlineKeyboardBuilder()
     builder.button(
-        text="Участвую",
+        text="Записаться в резерв",
         callback_data=PlannedPollAction(action="confirm", teavent_id=teavent_id),
     )
     builder.button(
