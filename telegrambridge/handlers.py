@@ -98,7 +98,11 @@ async def handle_command_teavents(
     message: aiogram.types.Message, list_teavents: Coroutine
 ):
     content = render_teavents(await list_teavents())
-    await message.reply(**content.as_kwargs(), disable_web_page_preview=True)
+    await message.reply(
+        **content.as_kwargs(),
+        disable_web_page_preview=True,
+        disable_notification=True,
+    )
 
 
 @router.message(Command("new"), IsAdmin())
@@ -157,7 +161,7 @@ async def handle_command_settings(
 @router.callback_query(RegPollAction.filter())
 @router.callback_query(PlannedPollAction.filter())
 @router.callback_query(IAmLateAction.filter())
-async def handle_button_click(
+async def handle_view_action(
     callback: aiogram.types.CallbackQuery,
     callback_data,
     user_action: Coroutine,

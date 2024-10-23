@@ -82,7 +82,7 @@ class Teavent(TeaveModel):
     def from_gcal_event(gcal_event_item: dict[str, str]) -> "Teavent":
         _ = gcal_event_item
 
-        description = _["description"].replace("\xa0", " ")
+        description = _.get("description", "").replace("\xa0", " ")
         start = datetime.fromisoformat(_["start"]["dateTime"])
         original_start_time_raw = _.get("originalStartTime", {}).get("dateTime")
         original_start_time = (
