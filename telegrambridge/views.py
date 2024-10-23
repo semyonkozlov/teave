@@ -54,7 +54,7 @@ def _participants(t: Teavent) -> Text:
     participants = t.effective_participant_ids or ["~"]
     return as_marked_section(
         Bold(
-            f"Участники ({t.num_participants}/{t.config.max}, минимум {t.config.min}):"
+            f"Участники ({t.num_participants}/{t.effective_max}, минимум {t.config.min}):"
         ),
         *participants,
         marker="  ",

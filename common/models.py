@@ -73,6 +73,7 @@ class Teavent(TeaveModel):
     state: str = "created"
 
     config: TeaventConfig = Field(default=TeaventConfig())
+    effective_max_: int | None = None
 
     communication_ids: list[str]
 
@@ -105,6 +106,14 @@ class Teavent(TeaveModel):
             config=TeaventConfig.from_description(description),
             communication_ids=[],
         )
+
+    @property
+    def effective_max(self) -> int:
+        return self.effective_max_ or self.config.max
+
+    @effective_max.setter
+    def effective_max(self, value: int | None):
+        self.effective_max_ = value
 
     @property
     def link(self) -> str:
@@ -215,11 +224,11 @@ class Teavent(TeaveModel):
 
     @property
     def effective_participant_ids(self) -> list[str]:
-        return self.participant_ids[: self.config.max]
+        return self.participant_ids[: self.effective_max]
 
     @property
     def reserve_participant_ids(self) -> list[str]:
-        return self.participant_ids[self.config.max :]
+        return self.participant_ids[self.effective_max :]
 
 
 def _calid_from_email(email: str) -> str:

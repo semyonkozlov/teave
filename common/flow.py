@@ -47,6 +47,10 @@ class TeaventFlow(StateMachine):
         if not model.has_reserve():
             raise RuntimeError("No reserve")
 
+    @poll_open.exit
+    def set_effective_max(self, model: Teavent):
+        model.effective_max = len(model.participant_ids)
+
     @i_am_late.on
     def add_latee(self, user_id: str, model: Teavent):
         if user_id not in model.latees:
@@ -89,3 +93,4 @@ class TeaventFlow(StateMachine):
     def reset_participants(self, model: Teavent):
         model.participant_ids = []
         model.latees = []
+        model.effective_max = None
