@@ -12,11 +12,11 @@ class RegPollAction(CallbackData, prefix="reg_poll"):
 def make_regpoll_keyboard(teavent_id: str):
     builder = InlineKeyboardBuilder()
     builder.button(
-        text="Участвую",
+        text="➕ Join",
         callback_data=RegPollAction(action="confirm", teavent_id=teavent_id),
     )
     builder.button(
-        text="Не участвую",
+        text="➖ Leave",
         callback_data=RegPollAction(action="reject", teavent_id=teavent_id),
     )
     builder.adjust(2)
@@ -31,11 +31,11 @@ class PlannedPollAction(CallbackData, prefix="planned_poll"):
 def make_plannedpoll_keyboard(teavent_id: str):
     builder = InlineKeyboardBuilder()
     builder.button(
-        text="Записаться в резерв",
+        text="➕ Join as reserve",
         callback_data=PlannedPollAction(action="confirm", teavent_id=teavent_id),
     )
     builder.button(
-        text="Отказаться от участия",
+        text="➖ Leave",
         callback_data=PlannedPollAction(action="reject", teavent_id=teavent_id),
     )
     builder.adjust(2)
@@ -50,7 +50,7 @@ class IAmLateAction(CallbackData, prefix="i_am_late"):
 def make_started_keyboard(teavent_id: str):
     builder = InlineKeyboardBuilder()
     builder.button(
-        text="Опаздываю",
+        text="🏃 I am late",
         callback_data=IAmLateAction(action="i_am_late", teavent_id=teavent_id),
     )
     builder.adjust(1)
