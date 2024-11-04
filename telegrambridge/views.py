@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 import asyncio
 from contextlib import suppress
 from datetime import datetime, timedelta
+from urllib.parse import quote_plus
 
 import aiogram
 import humanize
@@ -33,28 +34,42 @@ humanize.i18n.activate("ru")
 
 
 def _location(location: str) -> Text:
-    return as_key_value("Место", location)
+    base_url = "https://www.google.com/maps/search/"
+    return as_key_value(
+        "📍 Место",
+        TextLink(
+            location,
+            url=base_url + quote_plus(location),
+        ),
+    )
 
 
 def _when_inline(dt: datetime) -> str:
-    return format_datetime(dt, "d MMMM, в HH:mm", locale="ru_RU")
+    return format_datetime(dt, "d MMMM, в HH:mm", locale="ru")
 
 
 def _when(dt: datetime) -> Text:
     return as_key_value(
-        "Начало", format_datetime(dt, "EEEE, d MMMM, HH:mm", locale="ru_RU")
+        "🕐 Начало",
+        Text(
+            format_datetime(dt, "EEEE, d MMMM, HH:mm", locale="ru"),
+            " / ",
+            format_datetime(dt, "EEE, MMM d, h:mm a", locale="en"),
+        ),
     )
 
 
 def _duration(td: timedelta) -> Text:
-    return as_key_value("Продолжительность", humanize.precisedelta(td, format="%0.0f"))
+    return as_key_value(
+        "⏳️ Продолжительность", humanize.precisedelta(td, format="%0.0f")
+    )
 
 
 def _participants(t: Teavent) -> Text:
     participants = t.effective_participant_ids or ["~"]
     return as_marked_section(
         Bold(
-            f"Участники ({t.num_participants}/{t.effective_max}, минимум {t.config.min}):"
+            f"👥 Участники ({t.num_participants}/{t.effective_max}, минимум {t.config.min}):"
         ),
         *participants,
         marker="  ",
@@ -67,14 +82,14 @@ def _reserve(t: Teavent) -> Text:
         return Text()
 
     return as_marked_section(
-        Bold("Резерв:"),
+        Bold("🥫 Резерв:"),
         *reserve,
         marker="  ",
     )
 
 
 def _status(teavent_state: str) -> Text:
-    return as_key_value("Статус", teavent_state)
+    return as_key_value("📄 Статус", teavent_state)
 
 
 def _settings(teavent_id: str) -> Text:
